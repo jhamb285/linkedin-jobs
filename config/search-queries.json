@@ -1,0 +1,24 @@
+[
+  { "group": "T1", "tier": 1, "maxResults": 15, "query": "\"contract\" \"ai engineer\" remote", "note": "CHAMPION — contract AI engineer, remote focus" },
+  { "group": "T1", "tier": 1, "maxResults": 15, "query": "\"looking for\" \"agentic ai\" freelance remote", "note": "Agentic niche, remote" },
+  { "group": "T1", "tier": 1, "maxResults": 15, "query": "\"looking for\" \"ai agent\" developer freelance", "note": "Agent dev seekers" },
+  { "group": "T1", "tier": 1, "maxResults": 15, "query": "\"looking for\" \"ai developer\" remote contract", "note": "AI dev remote contracts" },
+  { "group": "T1", "tier": 1, "maxResults": 15, "query": "\"hiring\" \"ai engineer\" remote freelance", "note": "Hiring AI engineer remote" },
+  { "group": "T1", "tier": 1, "maxResults": 15, "query": "\"need\" \"ai developer\" freelance remote", "note": "Need AI dev freelance" },
+  { "group": "T1", "tier": 1, "maxResults": 15, "query": "\"looking for\" \"ai consultant\" remote", "note": "AI consultant remote" },
+  { "group": "T1", "tier": 1, "maxResults": 15, "query": "\"contract\" \"machine learning\" engineer remote", "note": "ML engineer contracts" },
+  { "group": "T1", "tier": 1, "maxResults": 15, "query": "\"freelance\" \"ai automation\" remote", "note": "AI automation freelance" },
+  { "group": "T1", "tier": 1, "maxResults": 15, "query": "\"looking for\" \"rag pipeline\" OR \"looking for\" \"rag developer\"", "note": "RAG-specific seekers" },
+
+  { "group": "T2", "tier": 2, "maxResults": 10, "query": "\"freelance\" \"ai engineer\" remote", "note": "Freelance AI engineer remote" },
+  { "group": "T2", "tier": 2, "maxResults": 10, "query": "\"need\" \"ai engineer\" contract remote", "note": "Need AI engineer contract" },
+  { "group": "T2", "tier": 2, "maxResults": 10, "query": "\"contract\" \"ai consultant\" remote", "note": "Contract AI consultant" },
+  { "group": "T2", "tier": 2, "maxResults": 10, "query": "\"contract\" \"ai developer\" remote", "note": "Contract AI developer" },
+  { "group": "T2", "tier": 2, "maxResults": 10, "query": "\"looking for\" \"chatbot\" developer freelance", "note": "Chatbot dev seekers" },
+  { "group": "T2", "tier": 2, "maxResults": 10, "query": "\"hiring\" \"llm\" engineer OR \"hiring\" \"llm\" developer", "note": "LLM-specific roles" },
+  { "group": "T2", "tier": 2, "maxResults": 10, "query": "\"need help\" \"ai\" automation OR \"need help\" \"ai\" integration", "note": "AI help seekers" },
+  { "group": "T2", "tier": 2, "maxResults": 10, "query": "\"looking for\" \"data pipeline\" engineer freelance", "note": "Data pipeline freelance" },
+
+  { "group": "T3", "tier": 3, "maxResults": 5, "query": "\"hiring\" \"ai consultant\" remote", "note": "Exploratory — AI consultant hiring" },
+  { "group": "T3", "tier": 3, "maxResults": 5, "query": "\"need\" \"ai developer\" contract", "note": "Exploratory — AI dev contract" }
+]

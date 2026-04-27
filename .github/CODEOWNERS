@@ -1,0 +1,16 @@
+# CODEOWNERS — linkedin-jobs
+#
+# Anyone making changes in these paths needs the listed owner's PR approval.
+# Update GitHub usernames as team members come online.
+
+# Default — PK reviews everything not specifically owned below
+*                              @par1kahl
+
+# Architecture / docs require PK approval
+/ARCHITECTURE.md               @par1kahl
+/CLAUDE.md                     @par1kahl
+/README.md                     @par1kahl
+
+# Backend code (when added) — replace @TBD with the dev's GitHub username
+# /src/                          @TBD-DEV-USERNAME @par1kahl
+# /lib/                          @TBD-DEV-USERNAME @par1kahl

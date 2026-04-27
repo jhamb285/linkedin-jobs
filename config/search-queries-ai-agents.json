@@ -1,0 +1,13 @@
+[
+  { "group": "AG1", "tier": 1, "maxResults": 3, "query": "\"ai agents\" \"legal\" freelance OR \"ai agents\" \"legal\" contract", "note": "Legal vertical" },
+  { "group": "AG1", "tier": 1, "maxResults": 3, "query": "\"ai agents\" \"consultant\"", "note": "AI agents consulting" },
+  { "group": "AG1", "tier": 1, "maxResults": 3, "query": "\"ai agents\" \"healthcare\" freelance OR \"ai agents\" \"healthcare\" contract", "note": "Healthcare vertical" },
+  { "group": "AG1", "tier": 1, "maxResults": 3, "query": "\"ai agents\" \"fintech\" freelance OR \"ai agents\" \"fintech\" contract", "note": "Fintech vertical" },
+  { "group": "AG1", "tier": 1, "maxResults": 3, "query": "\"ai agents\" \"sales\" freelance OR \"ai agents\" \"sales automation\"", "note": "Sales vertical" },
+
+  { "group": "AG2", "tier": 1, "maxResults": 3, "query": "\"ai agents\" \"marketing\" freelance OR \"ai agents\" \"marketing automation\"", "note": "Marketing vertical" },
+  { "group": "AG2", "tier": 1, "maxResults": 3, "query": "\"ai agents\" \"customer service\" OR \"ai agents\" \"customer support\"", "note": "Support vertical" },
+  { "group": "AG2", "tier": 1, "maxResults": 3, "query": "\"ai agents\" \"ecommerce\" OR \"ai agents\" \"retail\"", "note": "Ecommerce vertical" },
+  { "group": "AG2", "tier": 1, "maxResults": 3, "query": "\"ai agents\" \"workflow\" automation freelance", "note": "Workflow automation" },
+  { "group": "AG2", "tier": 1, "maxResults": 3, "query": "\"looking for\" \"ai agents\" \"engineer\" OR \"hiring\" \"ai agents\" engineer", "note": "AI agents engineer direct" }
+]

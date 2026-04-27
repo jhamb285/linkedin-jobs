@@ -1,0 +1,443 @@
+[
+  {
+    "group": "CORE",
+    "tier": 1,
+    "maxResults": 3,
+    "query": "\"agentic ai\" consultant freelance OR \"agentic ai\" contract",
+    "note": "Agentic AI niche"
+  },
+  {
+    "group": "AG1",
+    "tier": 1,
+    "maxResults": 3,
+    "query": "\"ai agents\" \"consultant\"",
+    "note": "AI agents consulting"
+  },
+  {
+    "group": "AG2",
+    "tier": 1,
+    "maxResults": 3,
+    "query": "\"ai agents\" \"customer service\" OR \"ai agents\" \"customer support\"",
+    "note": "Support vertical"
+  },
+  {
+    "group": "BIZ",
+    "tier": 2,
+    "maxResults": 3,
+    "query": "\"ai agents\" \"customer support\" freelance OR \"ai agents\" \"customer service\" freelance",
+    "note": "Support vertical"
+  },
+  {
+    "group": "AG2",
+    "tier": 1,
+    "maxResults": 3,
+    "query": "\"ai agents\" \"ecommerce\" OR \"ai agents\" \"retail\"",
+    "note": "Ecommerce vertical"
+  },
+  {
+    "group": "RETAIL",
+    "tier": 2,
+    "maxResults": 3,
+    "query": "\"ai agents\" \"ecommerce\" freelance OR \"ai agents\" \"ecommerce\" contract",
+    "note": "Ecommerce agents"
+  },
+  {
+    "group": "FIN",
+    "tier": 2,
+    "maxResults": 3,
+    "query": "\"ai agents\" \"fintech\" freelance OR \"ai agents\" \"fintech\" contract",
+    "note": "Fintech vertical"
+  },
+  {
+    "group": "HEALTH",
+    "tier": 2,
+    "maxResults": 3,
+    "query": "\"ai agents\" \"healthcare\" contract freelance",
+    "note": "Healthcare agents"
+  },
+  {
+    "group": "AG1",
+    "tier": 1,
+    "maxResults": 3,
+    "query": "\"ai agents\" \"healthcare\" freelance OR \"ai agents\" \"healthcare\" contract",
+    "note": "Healthcare vertical"
+  },
+  {
+    "group": "LEGAL",
+    "tier": 2,
+    "maxResults": 3,
+    "query": "\"ai agents\" \"legal\" OR \"legal ai\" consultant",
+    "note": "Legal agents"
+  },
+  {
+    "group": "AG1",
+    "tier": 1,
+    "maxResults": 3,
+    "query": "\"ai agents\" \"legal\" freelance OR \"ai agents\" \"legal\" contract",
+    "note": "Legal vertical"
+  },
+  {
+    "group": "AG2",
+    "tier": 1,
+    "maxResults": 3,
+    "query": "\"ai agents\" \"marketing\" freelance OR \"ai agents\" \"marketing automation\"",
+    "note": "Marketing vertical"
+  },
+  {
+    "group": "AG1",
+    "tier": 1,
+    "maxResults": 3,
+    "query": "\"ai agents\" \"sales\" freelance OR \"ai agents\" \"sales automation\"",
+    "note": "Sales vertical"
+  },
+  {
+    "group": "BIZ",
+    "tier": 2,
+    "maxResults": 3,
+    "query": "\"ai agents\" \"sales\" freelance OR \"ai sdr\" freelance",
+    "note": "Sales vertical"
+  },
+  {
+    "group": "OPS",
+    "tier": 2,
+    "maxResults": 3,
+    "query": "\"ai agents\" \"supply chain\" freelance",
+    "note": "Supply chain"
+  },
+  {
+    "group": "AG2",
+    "tier": 1,
+    "maxResults": 3,
+    "query": "\"ai agents\" \"workflow\" automation freelance",
+    "note": "Workflow automation"
+  },
+  {
+    "group": "CORE",
+    "tier": 1,
+    "maxResults": 3,
+    "query": "\"ai agents\" freelance OR \"ai agents\" contract",
+    "note": "Core - AI agents freelance/contract"
+  },
+  {
+    "group": "CORE",
+    "tier": 1,
+    "maxResults": 3,
+    "query": "\"ai consultant\" contract",
+    "note": "Core - AI consultant contract"
+  },
+  {
+    "group": "CORE",
+    "tier": 1,
+    "maxResults": 3,
+    "query": "\"ai consultant\" freelance",
+    "note": "Core - AI consultant freelance"
+  },
+  {
+    "group": "CORE",
+    "tier": 1,
+    "maxResults": 3,
+    "query": "\"ai consulting\" project freelance",
+    "note": "Consulting project"
+  },
+  {
+    "group": "CORE",
+    "tier": 1,
+    "maxResults": 3,
+    "query": "\"ai implementation\" partner freelance",
+    "note": "Implementation partner"
+  },
+  {
+    "group": "CORE",
+    "tier": 1,
+    "maxResults": 3,
+    "query": "\"ai integration\" consultant contract",
+    "note": "Integration consulting"
+  },
+  {
+    "group": "CORE",
+    "tier": 1,
+    "maxResults": 3,
+    "query": "\"ai strategy\" consultant contract",
+    "note": "Strategy consulting"
+  },
+  {
+    "group": "FIN",
+    "tier": 2,
+    "maxResults": 3,
+    "query": "\"ai\" \"banking\" consultant contract",
+    "note": "Banking vertical"
+  },
+  {
+    "group": "HEALTH",
+    "tier": 2,
+    "maxResults": 3,
+    "query": "\"ai\" \"biotech\" freelance OR \"ai\" \"pharma\" freelance",
+    "note": "Biotech/pharma"
+  },
+  {
+    "group": "USECASE",
+    "tier": 3,
+    "maxResults": 3,
+    "query": "\"ai\" \"business intelligence\" consultant freelance",
+    "note": "BI"
+  },
+  {
+    "group": "USECASE",
+    "tier": 3,
+    "maxResults": 3,
+    "query": "\"ai\" \"chatbot\" consultant freelance",
+    "note": "Chatbot use case"
+  },
+  {
+    "group": "USECASE",
+    "tier": 3,
+    "maxResults": 3,
+    "query": "\"ai\" \"data analytics\" consultant freelance",
+    "note": "Data analytics + AI"
+  },
+  {
+    "group": "USECASE",
+    "tier": 3,
+    "maxResults": 3,
+    "query": "\"ai\" \"document\" processing freelance",
+    "note": "Document processing"
+  },
+  {
+    "group": "INDUSTRY",
+    "tier": 3,
+    "maxResults": 3,
+    "query": "\"ai\" \"education\" consultant freelance OR \"ai\" \"edtech\" freelance",
+    "note": "Education"
+  },
+  {
+    "group": "INDUSTRY",
+    "tier": 3,
+    "maxResults": 3,
+    "query": "\"ai\" \"energy\" consultant freelance OR \"ai\" \"utilities\" consultant",
+    "note": "Energy"
+  },
+  {
+    "group": "FIN",
+    "tier": 2,
+    "maxResults": 3,
+    "query": "\"ai\" \"finance\" consultant freelance",
+    "note": "Finance vertical"
+  },
+  {
+    "group": "HEALTH",
+    "tier": 2,
+    "maxResults": 3,
+    "query": "\"ai\" \"healthcare\" consultant freelance",
+    "note": "Healthcare consulting"
+  },
+  {
+    "group": "INDUSTRY",
+    "tier": 3,
+    "maxResults": 3,
+    "query": "\"ai\" \"hospitality\" consultant freelance OR \"ai\" \"travel\" freelance",
+    "note": "Hospitality/travel"
+  },
+  {
+    "group": "BIZ",
+    "tier": 2,
+    "maxResults": 3,
+    "query": "\"ai\" \"hr\" consultant freelance OR \"ai\" \"recruitment\" consultant",
+    "note": "HR vertical"
+  },
+  {
+    "group": "FIN",
+    "tier": 2,
+    "maxResults": 3,
+    "query": "\"ai\" \"insurance\" consultant freelance",
+    "note": "Insurance vertical"
+  },
+  {
+    "group": "USECASE",
+    "tier": 3,
+    "maxResults": 3,
+    "query": "\"ai\" \"internal tools\" freelance contract",
+    "note": "Internal tools"
+  },
+  {
+    "group": "USECASE",
+    "tier": 3,
+    "maxResults": 3,
+    "query": "\"ai\" \"knowledge management\" consultant freelance",
+    "note": "Knowledge mgmt"
+  },
+  {
+    "group": "LEGAL",
+    "tier": 2,
+    "maxResults": 3,
+    "query": "\"ai\" \"legal\" consultant contract OR \"ai\" \"legal\" freelance",
+    "note": "Legal vertical"
+  },
+  {
+    "group": "USECASE",
+    "tier": 3,
+    "maxResults": 3,
+    "query": "\"ai\" \"llm\" integration freelance OR \"llm\" consultant contract",
+    "note": "LLM integration"
+  },
+  {
+    "group": "OPS",
+    "tier": 2,
+    "maxResults": 3,
+    "query": "\"ai\" \"logistics\" consultant freelance",
+    "note": "Logistics"
+  },
+  {
+    "group": "OPS",
+    "tier": 2,
+    "maxResults": 3,
+    "query": "\"ai\" \"manufacturing\" consultant contract",
+    "note": "Manufacturing"
+  },
+  {
+    "group": "BIZ",
+    "tier": 2,
+    "maxResults": 3,
+    "query": "\"ai\" \"marketing\" consultant contract",
+    "note": "Marketing vertical"
+  },
+  {
+    "group": "INDUSTRY",
+    "tier": 3,
+    "maxResults": 3,
+    "query": "\"ai\" \"media\" consultant freelance OR \"ai\" \"publishing\" freelance",
+    "note": "Media"
+  },
+  {
+    "group": "HEALTH",
+    "tier": 2,
+    "maxResults": 3,
+    "query": "\"ai\" \"medical\" consultant contract",
+    "note": "Medical vertical"
+  },
+  {
+    "group": "USECASE",
+    "tier": 3,
+    "maxResults": 3,
+    "query": "\"ai\" \"mvp\" freelance consultant",
+    "note": "MVP builds"
+  },
+  {
+    "group": "USECASE",
+    "tier": 3,
+    "maxResults": 3,
+    "query": "\"ai\" \"proof of concept\" freelance OR \"ai poc\" freelance",
+    "note": "POC work"
+  },
+  {
+    "group": "USECASE",
+    "tier": 3,
+    "maxResults": 3,
+    "query": "\"ai\" \"rag\" consultant freelance OR \"ai\" \"rag\" contract",
+    "note": "RAG use case"
+  },
+  {
+    "group": "INDUSTRY",
+    "tier": 3,
+    "maxResults": 3,
+    "query": "\"ai\" \"real estate\" consultant freelance OR \"ai\" \"proptech\" freelance",
+    "note": "Real estate"
+  },
+  {
+    "group": "RETAIL",
+    "tier": 2,
+    "maxResults": 3,
+    "query": "\"ai\" \"retail\" consultant freelance",
+    "note": "Retail vertical"
+  },
+  {
+    "group": "USECASE",
+    "tier": 3,
+    "maxResults": 3,
+    "query": "\"ai\" \"voice\" agent freelance OR \"voice ai\" consultant",
+    "note": "Voice AI"
+  },
+  {
+    "group": "USECASE",
+    "tier": 3,
+    "maxResults": 3,
+    "query": "\"ai\" \"workflow\" automation freelance",
+    "note": "Workflow automation"
+  },
+  {
+    "group": "T2",
+    "tier": 2,
+    "maxResults": 3,
+    "query": "\"contract\" \"ai consultant\"",
+    "note": "1/1 approved, avg 29"
+  },
+  {
+    "group": "T2",
+    "tier": 2,
+    "maxResults": 3,
+    "query": "\"contract\" \"ai developer\"",
+    "note": "1/2 approved"
+  },
+  {
+    "group": "T1",
+    "tier": 1,
+    "maxResults": 3,
+    "query": "\"contract\" \"ai engineer\"",
+    "note": "CHAMPION 4/4 approved, avg 40/40"
+  },
+  {
+    "group": "T2",
+    "tier": 2,
+    "maxResults": 3,
+    "query": "\"freelance\" \"ai engineer\"",
+    "note": "2/3 approved"
+  },
+  {
+    "group": "T3",
+    "tier": 3,
+    "maxResults": 3,
+    "query": "\"hiring\" \"ai consultant\"",
+    "note": "1/3 approved, avg 20"
+  },
+  {
+    "group": "T1",
+    "tier": 1,
+    "maxResults": 3,
+    "query": "\"looking for\" \"agentic ai\" freelance OR \"looking for\" \"agentic ai\" contract",
+    "note": "4/5 approved, agentic niche"
+  },
+  {
+    "group": "T1",
+    "tier": 1,
+    "maxResults": 3,
+    "query": "\"looking for\" \"ai agent\" developer freelance",
+    "note": "3/4 approved, agent dev"
+  },
+  {
+    "group": "AG2",
+    "tier": 1,
+    "maxResults": 3,
+    "query": "\"looking for\" \"ai agents\" \"engineer\" OR \"hiring\" \"ai agents\" engineer",
+    "note": "AI agents engineer direct"
+  },
+  {
+    "group": "T3",
+    "tier": 3,
+    "maxResults": 3,
+    "query": "\"looking for\" \"ai consultant\"",
+    "note": "1/3 approved, avg 19"
+  },
+  {
+    "group": "T3",
+    "tier": 3,
+    "maxResults": 3,
+    "query": "\"need\" \"ai developer\" contract",
+    "note": "0/1 but avg 30, worth retrying"
+  },
+  {
+    "group": "T2",
+    "tier": 2,
+    "maxResults": 3,
+    "query": "\"need\" \"ai engineer\" contract",
+    "note": "2/3 approved"
+  }
+]

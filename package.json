@@ -1,0 +1,26 @@
+{
+  "name": "linkedin-lead-scrape-reply",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "scrape": "bun run src/index.ts scrape",
+    "score": "bun run src/index.ts score",
+    "generate": "bun run src/index.ts generate",
+    "review": "bun run src/index.ts review",
+    "leads": "bun run src/index.ts leads",
+    "export": "bun run src/index.ts export",
+    "connect": "bun run src/index.ts connect",
+    "dm": "bun run src/index.ts dm",
+    "status": "bun run src/index.ts status",
+    "dry-run": "bun run src/index.ts dry-run",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "apify-client": "^2.11.0",
+    "googleapis": "^171.4.0"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.2.0"
+  }
+}

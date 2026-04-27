@@ -1,0 +1,9 @@
+node_modules/
+.env
+.env.local
+*.log
+data/exports/
+data/uploads/
+storage/
+apify_storage/
+.DS_Store
