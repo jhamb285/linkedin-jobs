@@ -14,6 +14,7 @@
     "status": "bun run src/index.ts status",
     "dry-run": "bun run src/index.ts dry-run",
     "smoke:store": "bun run scripts/smoke-store.ts",
+    "daily": "bun run scripts/daily.ts",
     "test": "bun test"
   },
   "dependencies": {
@@ -26,6 +27,7 @@
   },
   "devDependencies": {
     "@types/bun": "^1.2.0",
-    "@types/pg": "^8.11.10"
+    "@types/pg": "^8.11.10",
+    "typescript": "^6.0.3"
   }
 }

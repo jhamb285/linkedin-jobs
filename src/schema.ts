@@ -90,6 +90,12 @@ export const apifyRunStatus = pgEnum("apify_run_status", [
   "failed",
 ]);
 
+export const linkedinAccountHealth = pgEnum("linkedin_account_health", [
+  "green",
+  "yellow",
+  "red",
+]);
+
 // ---------------------------------------------------------------------------
 // Core: users + auth
 // ---------------------------------------------------------------------------
@@ -101,6 +107,13 @@ export const users = pgTable("users", {
   role: userRole("role").notNull(),
   name: text("name").notNull(),
   calendlyUrl: text("calendly_url"),
+  linkedinAccountHealth: linkedinAccountHealth("linkedin_account_health")
+    .notNull()
+    .default("green"),
+  linkedinHealthNote: text("linkedin_health_note"),
+  linkedinHealthUpdatedAt: timestamp("linkedin_health_updated_at", {
+    withTimezone: true,
+  }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

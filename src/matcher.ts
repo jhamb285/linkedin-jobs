@@ -3,6 +3,7 @@ import type { AppConfig, PostScore, ScoringResult, ScrapedPost } from "./types";
 import type { Store } from "./store";
 import { loadPrompt } from "./config";
 import { analyzeRemoteDays } from "./hybrid-filter";
+import { recordEvent } from "./events";
 
 function buildScoringPrompt(
   template: string,
@@ -113,6 +114,22 @@ export async function runScorer(
 
       await store.insertScore(score);
       scored++;
+
+      await recordEvent({
+        eventType: "score.completed",
+        workflow: "linkedin_jobs",
+        actor: "linkedin-jobs.matcher",
+        payload: {
+          postId: post.id,
+          total,
+          relevance: parsed.relevance,
+          fit: adjustedFit,
+          urgency: parsed.urgency,
+          engagementPotential: parsed.engagementPotential,
+          positioning: parsed.positioning,
+          highScore: total >= config.scoringThreshold,
+        },
+      });
 
       const marker = total >= config.scoringThreshold ? ">>>" : "   ";
       console.log(

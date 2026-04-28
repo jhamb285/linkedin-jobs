@@ -2,6 +2,7 @@ import { ApifyClient } from "apify-client";
 import type { AppConfig, ScrapedPost } from "./types";
 import type { Store, QueryRunCounts } from "./store";
 import { loadSearchQueries } from "./config";
+import { recordEvent } from "./events";
 import { createHash } from "crypto";
 
 /**
@@ -438,6 +439,19 @@ export async function runScraper(config: AppConfig, store: Store): Promise<void>
   let actorRuns = 0;
   let capped = false;
 
+  await recordEvent({
+    eventType: "scrape.run.started",
+    workflow: "linkedin_jobs",
+    actor: "linkedin-jobs.scraper",
+    payload: {
+      runId,
+      activeQueries: activeQueries.length,
+      totalQueries: queries.length,
+      remainingBudget,
+      apifyActor: config.apifyActorId,
+    },
+  });
+
   console.log(`Scraping ${activeQueries.length}/${queries.length} queries via ${config.apifyActorId} (last 2 days)...\n`);
 
   let totalNew = 0;
@@ -602,6 +616,24 @@ export async function runScraper(config: AppConfig, store: Store): Promise<void>
     actorRuns,
     estimatedCostUsd: estimatedCost,
     capped,
+  });
+
+  await recordEvent({
+    eventType: "scrape.run.completed",
+    workflow: "linkedin_jobs",
+    actor: "linkedin-jobs.scraper",
+    costUsd: estimatedCost,
+    payload: {
+      runId,
+      leadsFetched: fetchedThisRun,
+      leadsInserted: totalNew,
+      actorRuns,
+      capped,
+      totalGeo,
+      totalIntent: totalFiltered,
+      totalOld,
+      totalDupes: totalSkipped,
+    },
   });
 
   console.log(

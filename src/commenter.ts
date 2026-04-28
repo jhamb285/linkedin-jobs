@@ -2,6 +2,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { AppConfig } from "./types";
 import type { Store } from "./store";
 import { loadPrompt } from "./config";
+import { recordEvent } from "./events";
 
 interface LeadContent {
   summary: string;
@@ -98,6 +99,18 @@ export async function runGenerator(
           connectionNotePk: content.connectionNotePk,
           dmAj: content.dmAj,
           dmPk: content.dmPk,
+        });
+
+        await recordEvent({
+          eventType: "draft.generated",
+          workflow: "linkedin_jobs",
+          actor: "linkedin-jobs.commenter",
+          payload: {
+            postId: lead.id,
+            scoreTotal: lead.total,
+            positioning: lead.positioning,
+            personas: ["aj", "pk"],
+          },
         });
 
         console.log(

@@ -87,8 +87,32 @@ bun run status
 # Full pipeline without exporting (test mode)
 bun run dry-run
 
+# Daily orchestrator: scrape → score → batch → generate
+bun run daily            # full run
+bun run daily --dry-run  # scrape+score only
+bun run daily --skip-scrape  # iterate downstream only
+
 # Tests
 bun test
+```
+
+## Cron schedule (planned)
+
+The `daily` orchestrator is designed to run **once a day at 10:00 IST
+(04:30 UTC)** — a few hours after the EU/US workday so fresh posts have
+accumulated, and before AJ/PK start engaging with the queue.
+
+Crontab line (do **not** install on Hetzner yet — that's Phase 9):
+
+```cron
+30 4 * * *  cd /opt/automations/inbound/linkedin-jobs && bun run daily >> /var/log/linkedin-jobs/daily.log 2>&1
+```
+
+Until Phase 9 you run it manually:
+
+```bash
+cd inbound/linkedin-jobs
+bun run daily
 ```
 
 ## Filtering Pipeline
