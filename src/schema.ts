@@ -82,6 +82,7 @@ export const emailSendStatus = pgEnum("email_send_status", [
   "pending",
   "sent",
   "failed",
+  "unknown",
 ]);
 
 export const apifyRunStatus = pgEnum("apify_run_status", [
@@ -123,9 +124,14 @@ export const userGoogleTokens = pgTable("user_google_tokens", {
   userId: uuid("user_id")
     .primaryKey()
     .references(() => users.id, { onDelete: "cascade" }),
+  email: text("email"),
   accessToken: text("access_token"),
   refreshToken: text("refresh_token"),
   expiresAt: timestamp("expires_at", { withTimezone: true }),
+  scopes: text("scopes"),
+  connectedAt: timestamp("connected_at", { withTimezone: true }),
+  lastRefreshedAt: timestamp("last_refreshed_at", { withTimezone: true }),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
 });
 
 export const oauthNonces = pgTable("oauth_nonces", {
@@ -202,6 +208,7 @@ export const engagementDrafts = pgTable(
     followUpDm: text("follow_up_dm"),
     followUpEmail: text("follow_up_email"),
     followUpEmailSubject: text("follow_up_email_subject"),
+    recipientEmail: text("recipient_email"),
     status: draftStatus("status").notNull().default("pending"),
     generatedAt: timestamp("generated_at", { withTimezone: true })
       .notNull()
@@ -383,6 +390,11 @@ export const emailSends = pgTable("email_sends", {
   recipient: text("recipient").notNull(),
   subject: text("subject"),
   body: text("body"),
+  kind: text("kind").notNull().default("new"),
+  attachmentIds: jsonb("attachment_ids"),
+  gmailMessageId: text("gmail_message_id"),
+  gmailThreadId: text("gmail_thread_id"),
+  errorMessage: text("error_message"),
   sentAt: timestamp("sent_at", { withTimezone: true }),
   status: emailSendStatus("status").notNull().default("pending"),
 });

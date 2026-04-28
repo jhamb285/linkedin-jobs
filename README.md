@@ -96,24 +96,99 @@ bun run daily --skip-scrape  # iterate downstream only
 bun test
 ```
 
-## Cron schedule (planned)
+## Cron schedule (live)
 
-The `daily` orchestrator is designed to run **once a day at 10:00 IST
-(04:30 UTC)** — a few hours after the EU/US workday so fresh posts have
+The `daily` orchestrator runs **once a day at 10:00 IST (04:30 UTC)** on
+mediaos — a few hours after the EU/US workday so fresh posts have
 accumulated, and before AJ/PK start engaging with the queue.
 
-Crontab line (do **not** install on Hetzner yet — that's Phase 9):
+Active crontab line (Phase 9 deploy):
 
 ```cron
-30 4 * * *  cd /opt/automations/inbound/linkedin-jobs && bun run daily >> /var/log/linkedin-jobs/daily.log 2>&1
+30 4 * * *  cd /opt/automations/inbound/linkedin-jobs && /usr/local/bin/bun run daily >> /var/log/linkedin-jobs/daily.log 2>&1
 ```
 
-Until Phase 9 you run it manually:
+Manual invocation locally:
 
 ```bash
 cd inbound/linkedin-jobs
 bun run daily
 ```
+
+## TODO — deferred items
+
+These were deliberately scoped out of Phase 9 and are queued as
+follow-ups. Tackle in any order.
+
+### Pipeline / scrape logic
+
+- [ ] **Better rejection feedback loop** — current per-query counters in
+  `scrape_run_queries` get aggregated in the analytics page, but there's
+  no automatic "retire query if it's been yielding 0 inserts × N runs"
+  signal. Add a low-yield detector + alert.
+- [ ] **Author dedup window tuning** — `wasAuthorRecentlyScraped` uses 7d.
+  Verify against the migrated dataset whether 7d / 14d / 30d gives
+  better signal-to-noise for repeat-poster filtering.
+- [ ] **Hybrid filter expansion** — `analyzeRemoteDays` only fires on
+  `remoteDays >= 3`. Add detectors for "fully remote", "100% remote",
+  "no office", and "USD pay range present" as positive boosters; add
+  "must be in <city>" / "EST hours required" as soft rejections.
+- [ ] **Apify actor failover** — currently hard-bound to
+  `harvestapi/linkedin-post-search`. If harvestapi is down, the daily
+  run silently produces zero leads. Add a fallback actor + alert when
+  primary returns < N items for an established query.
+- [ ] **Per-query cost model** — track cost-per-inserted-lead per query
+  (we have fetched + inserted but no cost per query). Surface a "kill
+  this query" recommendation in the analytics page when CPL crosses a
+  threshold.
+- [ ] **Scoring stage failure handling** — when Gemini returns 429 (e.g.
+  monthly cap hit), the matcher loop swallows per-post errors and
+  reports the stage as `ok=true` with zero scored. Make the loop throw
+  if `scored == 0 && errors > 0` so the orchestrator's stage tracking
+  reflects reality.
+- [ ] **Score caching** — re-score identical posts (same content fingerprint)
+  by reusing the prior score rather than calling Gemini twice.
+
+### Content gen
+
+- [ ] **Recipient-email parsing** at content-gen time — the platform's
+  `db/backfill-recipient-email.ts` parses email-shaped strings out of
+  `posts.content`. Move that logic into `commenter.ts` so new drafts
+  get `recipient_email` populated at insert, not via backfill.
+- [ ] **Email subject + body separation** — current generator returns a
+  combined string for some legacy rows. Verify the new format
+  (`{ "emailSubject": ..., "email": ... }`) ships every time.
+- [ ] **Per-persona prompt tuning** — `lead-prompt.md` is one prompt for
+  both AJ + PK. Split into `lead-prompt-aj.md` + `lead-prompt-pk.md` so
+  each persona has its own voice.
+
+### Outbound (depends on platform)
+
+- [ ] **Gmail OAuth provisioning** — Phase 8.5 ported the email-send
+  route to Postgres but `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET`
+  are not yet set on the prod env. Until they're wired, `/api/leads/[postId]/email/send`
+  returns 503. Also need to add a "Connect Gmail" + "Send" UI in
+  `/staff/today` (the legacy UI's button is gone, ported route has no
+  UI caller in the new shell yet).
+- [ ] **PhantomBuster reactivation** — comment / connect / DM auto-poster
+  paths were stubbed in Phase 6. If we revive PhantomBuster, restore
+  `outreach.ts` + `scheduler.ts` to read from `engagement_drafts` and
+  write `engagement_actions` on completion.
+
+### Deploy / infra (platform repo)
+
+- [ ] **DNS A record** for `automations.kronus.tech` → `91.99.102.124`.
+  Until then the platform is reachable on the server IP only. Add the
+  record on the DNS provider, wait for propagation.
+- [ ] **Let's Encrypt cert** — once DNS resolves, run
+  `certbot --nginx -d automations.kronus.tech` on mediaos. The nginx
+  vhost already has the ACME challenge dir prepared.
+- [ ] **Srikant flip (Phase 9.5)** — migrate his current state ~1h
+  before cutover, flip his bookmark, retire the old
+  `/usr/local/bin/lead-pipeline-daily.sh` cron.
+- [ ] **Sheets export validation** — `getLeadsForExport()` was ported in
+  Phase 6 but never validated end-to-end against a real Google Sheet.
+  Needs `GOOGLE_CREDENTIALS_PATH` provisioned + an export run.
 
 ## Filtering Pipeline
 
@@ -152,4 +227,4 @@ Green rows = approved. Red rows = rejected with reason.
 - **AI:** Google Gemini 2.5 Flash (scoring + comment/DM generation)
 - **Export:** Google Sheets API (direct write, color-coded)
 - **Execution:** PhantomBuster or manual via Google Sheet
-- **Storage:** SQLite via `bun:sqlite`
+- **Storage:** Postgres via Drizzle (shared with the platform — schema in `platform/db/schema.ts`, mirrored here in `src/schema.ts`)
