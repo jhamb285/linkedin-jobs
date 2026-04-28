@@ -237,10 +237,178 @@ export class Store {
   }
 
   /**
+   * Posts in the current ACTIVE batch that don't yet have an
+   * engagement_drafts row for the persona they're assigned to.
+   *
+   * Each row carries `assignedPersona` ('aj' | 'pk') so the commenter
+   * knows which persona's RAG + prompt to use. Posts that aren't in
+   * the active batch (i.e. weren't picked up by daily.ts.rotateBatch)
+   * are excluded — the lead-split feature deliberately limits content
+   * gen to the batched-and-assigned set.
+   */
+  async getBatchedAssignedUncommented(
+    threshold: number,
+  ): Promise<
+    Array<
+      ScrapedPost & PostScore & {
+        author_url: string;
+        author_name: string;
+        author_headline: string;
+        assignedUserId: string;
+        assignedPersona: "aj" | "pk";
+      }
+    >
+  > {
+    const ids = await this.loadFounderIds();
+    if (!ids.aj || !ids.pk) {
+      throw new Error(
+        "Founder users (AJ, PK) not seeded — run `bun run db/seed.ts` first.",
+      );
+    }
+    const rows = (await db.execute(sql`
+      SELECT
+        p.id, p.url, p.author_name, p.author_headline, p.author_url,
+        p.content, p.engagement_count, p.scraped_at, p.query_used,
+        s.relevance, s.fit, s.urgency,
+        s.engagement_potential AS "engagementPotential",
+        s.total, s.positioning, s.reasoning,
+        s.scored_at AS "scoredAt",
+        ba.assigned_user_id AS "assignedUserId"
+      FROM batch_assignments ba
+      JOIN lead_batches lb ON lb.id = ba.batch_id AND lb.status = 'active'
+      JOIN posts p ON p.id = ba.post_id
+      JOIN scores s ON s.post_id = p.id
+      LEFT JOIN engagement_drafts d
+        ON d.post_id = p.id AND d.user_id = ba.assigned_user_id
+      WHERE p.source = 'linkedin_jobs'
+        AND s.total >= ${threshold}
+        AND s.fit > 0
+        AND ba.assigned_user_id IS NOT NULL
+        AND d.id IS NULL
+      ORDER BY s.total DESC
+    `)).rows as Array<{
+      id: string;
+      url: string;
+      author_name: string | null;
+      author_headline: string | null;
+      author_url: string | null;
+      content: string | null;
+      engagement_count: number | null;
+      scraped_at: Date;
+      query_used: string | null;
+      relevance: number;
+      fit: number;
+      urgency: number;
+      engagementPotential: number;
+      total: number;
+      positioning: string;
+      reasoning: string | null;
+      scoredAt: Date;
+      assignedUserId: string;
+    }>;
+
+    return rows.map((r) => ({
+      id: r.id,
+      url: r.url,
+      authorName: r.author_name ?? "",
+      authorHeadline: r.author_headline ?? "",
+      authorUrl: r.author_url ?? "",
+      content: r.content ?? "",
+      engagementCount: r.engagement_count ?? 0,
+      scrapedAt: toIso(r.scraped_at),
+      queryUsed: r.query_used ?? "",
+      postId: r.id,
+      relevance: r.relevance,
+      fit: r.fit,
+      urgency: r.urgency,
+      engagementPotential: r.engagementPotential,
+      total: r.total,
+      positioning: r.positioning as PostScore["positioning"],
+      reasoning: r.reasoning ?? "",
+      scoredAt: toIso(r.scoredAt),
+      author_url: r.author_url ?? "",
+      author_name: r.author_name ?? "",
+      author_headline: r.author_headline ?? "",
+      assignedUserId: r.assignedUserId,
+      assignedPersona: r.assignedUserId === ids.aj ? "aj" : "pk",
+    }));
+  }
+
+  /**
+   * Insert a single-persona engagement_draft. Replaces the dual-persona
+   * insertLeadContent in the per-persona RAG flow — daily.ts now calls
+   * this once per (post, persona) pair after generating that persona's
+   * content via their RAG.
+   *
+   * Idempotent on (post_id, user_id) — re-runs replace the existing
+   * row's content fields.
+   */
+  async insertPersonaDraft(
+    postId: string,
+    persona: "aj" | "pk",
+    content: {
+      comment: string;
+      connectionNote: string;
+      dm: string;
+      email?: string | null;
+      emailSubject?: string | null;
+      followUpDm?: string | null;
+      followUpEmail?: string | null;
+      followUpEmailSubject?: string | null;
+    },
+  ): Promise<void> {
+    const ids = await this.loadFounderIds();
+    const userId = persona === "aj" ? ids.aj : ids.pk;
+    if (!userId) {
+      throw new Error(
+        `Founder user for persona '${persona}' not seeded — run db/seed.ts first.`,
+      );
+    }
+    const value: typeof schema.engagementDrafts.$inferInsert = {
+      postId,
+      userId,
+      comment: content.comment,
+      connectionNote: content.connectionNote,
+      dm: content.dm,
+      email: content.email ?? null,
+      emailSubject: content.emailSubject ?? null,
+      followUpDm: content.followUpDm ?? null,
+      followUpEmail: content.followUpEmail ?? null,
+      followUpEmailSubject: content.followUpEmailSubject ?? null,
+      status: "pending",
+      generatedAt: new Date(),
+    };
+    await db
+      .insert(schema.engagementDrafts)
+      .values(value)
+      .onConflictDoUpdate({
+        target: [
+          schema.engagementDrafts.postId,
+          schema.engagementDrafts.userId,
+        ],
+        set: {
+          comment: value.comment,
+          connectionNote: value.connectionNote,
+          dm: value.dm,
+          email: value.email,
+          emailSubject: value.emailSubject,
+          followUpDm: value.followUpDm,
+          followUpEmail: value.followUpEmail,
+          followUpEmailSubject: value.followUpEmailSubject,
+          generatedAt: new Date(),
+        },
+      });
+  }
+
+  /**
    * Posts with score >= threshold and fit > 0 that don't yet have an
    * engagement_drafts row for either persona. Returns the union of post +
    * score columns the legacy generator expected (snake_case keys preserved
    * for in-place use by commenter.ts).
+   *
+   * @deprecated since the per-persona RAG flow — use
+   *   getBatchedAssignedUncommented instead. Kept for the smoke-store
+   *   script and any out-of-batch CLI invocation.
    */
   async getHighScoringUncommented(
     threshold: number,
