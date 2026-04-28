@@ -116,14 +116,36 @@ async function rotateBatch(): Promise<{
     return { batchId, assigned: 0, closed: closedId };
   }
 
+  // Resolve PK + AJ user UUIDs once. The split is fixed by email so flips
+  // would be a one-line code change rather than a migration.
+  const founderRows = await db
+    .select({ id: schema.users.id, email: schema.users.email })
+    .from(schema.users)
+    .where(eq(schema.users.role, "founder"));
+  const pkId = founderRows.find(
+    (r) => r.email === "pa.parikahlawat@gmail.com",
+  )?.id;
+  const ajId = founderRows.find((r) => r.email === "jhamb285@gmail.com")?.id;
+  if (!pkId || !ajId) {
+    throw new Error(
+      "rotateBatch: missing PK or AJ founder user — run db/seed.ts first",
+    );
+  }
+
+  // Top scorer (assignment_order = 1) goes to PK by convention. PK gets the
+  // odd ranks (1, 3, 5, ...), AJ gets the even ranks (2, 4, 6, ...) — which
+  // means each persona ends up with ceil(50/2) = 25 disjoint leads.
   const now = new Date();
   for (let i = 0; i < candidates.length; i++) {
+    const assignmentOrder = i + 1;
+    const assignedUserId = assignmentOrder % 2 === 1 ? pkId : ajId;
     await db.insert(schema.batchAssignments).values({
       batchId,
       postId: candidates[i].post_id,
-      assignmentOrder: i + 1,
+      assignmentOrder,
       dayNumber: 1,
       status: "pending",
+      assignedUserId,
       assignedAt: now,
     });
   }

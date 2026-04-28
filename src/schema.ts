@@ -329,11 +329,16 @@ export const batchAssignments = pgTable(
       .defaultNow(),
     completedAt: timestamp("completed_at", { withTimezone: true }),
     flaggedAt: timestamp("flagged_at", { withTimezone: true }),
+    assignedUserId: uuid("assigned_user_id").references(() => users.id),
   },
   (t) => ({
     batchPostUnique: uniqueIndex("batch_assignments_batch_post_uniq").on(
       t.batchId,
       t.postId,
+    ),
+    batchAssignedUserIdx: index("batch_assignments_batch_assigned_user_idx").on(
+      t.batchId,
+      t.assignedUserId,
     ),
   }),
 );
