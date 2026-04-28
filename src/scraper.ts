@@ -111,16 +111,36 @@ const EXCLUDED_REGIONS: string[] = [
 
 // India/South Asia/Africa content signals (city names, currency, patterns)
 const INDIA_CONTENT_SIGNALS: string[] = [
-  // India
+  // India — location phrases
   "in india", "india-based", "india based", "indian market", "indian candidates",
+  // India — cities
   "bangalore", "bengaluru", "hyderabad", "pune", "chennai",
   "mumbai", "delhi", "noida", "gurgaon", "gurugram",
   "kolkata", "ahmedabad", "jaipur", "kochi", "indore",
   "nagpur", "coimbatore", "lucknow", "chandigarh",
-  "inr", "₹", "lakh", "lakhs", "lpa",
+  "bhubaneswar", "thiruvananthapuram", "vadodara", "surat", "visakhapatnam",
+  // India — money + benefits markers
+  "inr", "₹", "lakh", "lakhs", "lpa", "ctc",
+  "₹ lpa", "rs.", "rs ", "rupees", "fixed pay", "variable pay",
+  // India — timezone signals (a remote-from-india tell)
+  "ist hours", "ist time", "ist timezone", "ist working hours",
+  "indian standard time", "ist shift", "9am ist", "10am ist",
+  // India — language patterns common in IN postings
+  "do the needful", "kindly revert", "kindly do", "pfa ",
+  "as per discussion", "interested candidates may", "interested candidates can",
+  "share your cv at", "share your resume at", "drop your cv",
+  "drop your resume", "share updated cv", "share updated resume",
+  "looking for immediate joiners", "immediate joiner", "immediate joiners",
+  "notice period", "serving notice", "preferred notice",
+  // India — large outsourcing/services firms (recruiter spam tell)
+  "tcs ", "infosys ", "wipro ", "hcl ", "cognizant ",
+  "tech mahindra", "capgemini india", "accenture india",
+  "ltimindtree", "mphasis ", "mindtree ", "persistent systems",
+  "naukri", "naukri.com",
   // Pakistan
   "in pakistan", "pakistan-based", "pakistani candidates",
   "lahore", "karachi", "islamabad", "rawalpindi", "peshawar",
+  "pkr", "rs/-",
   // Bangladesh
   "in bangladesh", "bangladesh-based", "dhaka", "chittagong",
   // Africa
@@ -142,7 +162,7 @@ const SPAM_HEADLINE_SIGNALS: string[] = [
   "offshore development", "nearshore", "bodyshop",
 ];
 
-function checkLocation(headline: string, postContent: string): { pass: boolean; reason: string } {
+export function checkLocation(headline: string, postContent: string): { pass: boolean; reason: string } {
   const headlineLower = headline.toLowerCase();
   const contentLower = postContent.toLowerCase();
 
@@ -219,12 +239,26 @@ const SEEKING_SIGNALS = [
   "let me know if", "budget", "contract", "freelance", "consultant",
 ];
 
-// Full-time permanent role signals — reject these early
+// Full-time permanent role signals — reject these early.
+// We are CONTRACT/FREELANCE only. Anything that smells like W2/FTE
+// gets rejected up front so we don't burn Gemini score calls on it.
 const FULLTIME_SIGNALS = [
+  // Explicit role-type wording
   "full-time role", "full time role", "full-time position", "full time position",
-  "full-time opportunity", "full time opportunity", "permanent role", "permanent position",
-  "permanent hire", "direct hire", "full-time employee", "fte role",
-  "w2 role", "w2 only", "w2 position",
+  "full-time opportunity", "full time opportunity", "full-time hire", "full time hire",
+  "permanent role", "permanent position", "permanent hire", "perm hire",
+  "direct hire", "direct-hire", "full-time employee", "fte role", "fte position",
+  "w2 role", "w2 only", "w2 position", "w-2 only", "w-2 role",
+  // Compensation phrasing — annualized salary + benefits package = FTE
+  "salary range", "yearly salary", "annual salary", "base salary",
+  "comp package", "compensation package", "total comp",
+  "401k", "401(k)", "health insurance", "medical, dental",
+  "medical/dental", "health benefits", "stock options",
+  "equity grant", "rsu grant", "rsu package", "vested over",
+  "pto policy", "pto + ", "unlimited pto", "vacation days",
+  "paid time off", "paid vacation",
+  // Benefits-style hire pitch
+  "great benefits", "competitive benefits", "comprehensive benefits",
 ];
 
 // Hybrid / on-site role signals — reject early (Par1k is remote only)
@@ -239,7 +273,7 @@ const ONSITE_SIGNALS = [
 // Regex: "📍 Location: City, ST" or "Location: City" without "remote" — signals on-site
 const LOCATION_PIN_REGEX = /(?:📍|location\s*:)\s*[A-Z][a-z]+(?:\s*,\s*[A-Z]{2})?/i;
 
-function quickIntentFilter(content: string, headline: string = ""): { pass: boolean; reason: string } {
+export function quickIntentFilter(content: string, headline: string = ""): { pass: boolean; reason: string } {
   const lower = content.toLowerCase();
   const headlineLower = headline.toLowerCase();
 
@@ -270,14 +304,37 @@ function quickIntentFilter(content: string, headline: string = ""): { pass: bool
   const hasGenAI = genaiSignals.some((s) => lower.includes(s));
   if (isMLOnly && !hasGenAI) return { pass: false, reason: "ml-only-not-genai" };
 
-  // Hard reject: hybrid/on-site role (Par1k is remote only)
+  // Hard reject: hybrid/on-site role. We are remote-only so "remote" alone
+  // isn't strong enough to override a hybrid mention — many posts say things
+  // like "remote-friendly hybrid" or "remote candidates also welcome" while
+  // still being effectively on-site.
+  //
+  // Override threshold: explicit "fully remote" / "100% remote" /
+  // "remote-first" / "remote only" / "anywhere in <region>" is what we
+  // accept as a legitimate remote signal in the presence of a hybrid/
+  // onsite mention. Plain "remote" by itself is no longer enough.
   const hasOnsite = ONSITE_SIGNALS.some((s) => lower.includes(s));
-  // Exception: "onsite" is ok if "remote" is also mentioned (hybrid-flexible)
+  const hasStrongRemote =
+    lower.includes("fully remote") ||
+    lower.includes("100% remote") ||
+    lower.includes("100 percent remote") ||
+    lower.includes("remote-first") ||
+    lower.includes("remote first") ||
+    lower.includes("remote only") ||
+    lower.includes("remote-only") ||
+    lower.includes("work from anywhere") ||
+    lower.includes("anywhere in the world") ||
+    lower.includes("anywhere in the us") ||
+    lower.includes("anywhere in europe") ||
+    lower.includes("anywhere in the eu");
   const hasRemote = lower.includes("remote");
-  if (hasOnsite && !hasRemote) return { pass: false, reason: "onsite-role" };
+  if (hasOnsite && !hasStrongRemote) {
+    return { pass: false, reason: "onsite-or-hybrid-role" };
+  }
 
-  // Hard reject: explicit physical location pinned (📍 Location: City, ST) without "remote"
-  if (LOCATION_PIN_REGEX.test(content) && !hasRemote) {
+  // Hard reject: explicit physical location pinned (📍 Location: City, ST)
+  // without a strong remote signal.
+  if (LOCATION_PIN_REGEX.test(content) && !hasStrongRemote) {
     return { pass: false, reason: "location-pinned-no-remote" };
   }
 
@@ -310,7 +367,34 @@ function quickIntentFilter(content: string, headline: string = ""): { pass: bool
     return { pass: false, reason: "newsletter-promo" };
   }
 
-  // Pass: seeking signals present
+  // Hard requirement: only contract / freelance / consultant work passes.
+  // A hiring-shaped post that doesn't mention any of those is most likely
+  // an FTE pitch we want nothing to do with.
+  const CONTRACT_SIGNALS = [
+    "contract", "contractor", "freelance", "freelancer",
+    "consultant", "consulting engagement", "consultancy",
+    "1099", "c2c", "corp-to-corp", "corp to corp",
+    "project-based", "project basis", "fixed-term",
+    "short-term contract", "long-term contract",
+    "contract-to-hire", "contract to hire",
+  ];
+  const HIRING_SHAPED_SIGNALS = [
+    "looking for", "hiring", "we're hiring", "we are hiring",
+    "we need", "i need", "our team needs",
+    "want to hire", "ready to hire", "open role",
+    "open position", "join our team", "join us",
+    "seeking a", "searching for",
+  ];
+  const hasContract = CONTRACT_SIGNALS.some((s) => lower.includes(s));
+  const isHiringShaped = HIRING_SHAPED_SIGNALS.some((s) => lower.includes(s));
+  if (isHiringShaped && !hasContract) {
+    return { pass: false, reason: "no-contract-signal" };
+  }
+
+  // Pass: explicit contract/freelance signal present.
+  if (hasContract) return { pass: true, reason: "contract-signal" };
+
+  // Pass: seeking signals present (fallback — discovery / referral asks etc.)
   const hasSeeking = SEEKING_SIGNALS.some((s) => lower.includes(s));
   if (hasSeeking) return { pass: true, reason: "seeking-signal" };
 
@@ -318,7 +402,10 @@ function quickIntentFilter(content: string, headline: string = ""): { pass: bool
   const hasPromo = PROMO_SIGNALS.some((s) => lower.includes(s));
   if (hasPromo) return { pass: false, reason: "promo-content" };
 
-  return { pass: true, reason: "neutral" };
+  // Default policy is now REJECT for vague posts. Without a contract
+  // or seeking signal, the post is unlikely to be a real lead — letting
+  // it through wastes Gemini scoring budget and produces low-quality drafts.
+  return { pass: false, reason: "no-explicit-intent" };
 }
 
 // ── Date Filter ──
