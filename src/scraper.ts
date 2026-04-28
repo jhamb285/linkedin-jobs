@@ -261,9 +261,24 @@ const FULLTIME_SIGNALS = [
   "great benefits", "competitive benefits", "comprehensive benefits",
 ];
 
-// Hybrid / on-site role signals — reject early (Par1k is remote only)
+// Hybrid role signals — HARD reject, no escape via "fully remote".
+// Anything tagged hybrid is off-the-table per direction; we don't
+// even consider these regardless of how the rest of the post reads.
+// (We deliberately match on `hybrid <noun>` job-description phrasing
+// rather than the bare word "hybrid", so a post that says
+// "no hybrid here, fully remote" is not falsely killed.)
+const HYBRID_SIGNALS = [
+  "hybrid role", "hybrid position", "hybrid work", "hybrid model",
+  "hybrid setup", "hybrid arrangement", "hybrid schedule",
+  "hybrid based", "hybrid-based",
+];
+
+// On-site role signals — reject UNLESS the post also has a strong
+// remote signal (e.g. "we're an onsite-first shop but this role is
+// fully remote"). Bare "onsite" remains overridable; explicit hybrid
+// wording is not.
 const ONSITE_SIGNALS = [
-  "hybrid role", "hybrid position", "hybrid work", "in-office",
+  "in-office",
   "onsite role", "on-site role", "on site role", "on-site position", "onsite position",
   "must be local", "must be based in", "in-person",
   "3 days a week in office", "2 days in office", "office presence",
@@ -304,15 +319,15 @@ export function quickIntentFilter(content: string, headline: string = ""): { pas
   const hasGenAI = genaiSignals.some((s) => lower.includes(s));
   if (isMLOnly && !hasGenAI) return { pass: false, reason: "ml-only-not-genai" };
 
-  // Hard reject: hybrid/on-site role. We are remote-only so "remote" alone
-  // isn't strong enough to override a hybrid mention — many posts say things
-  // like "remote-friendly hybrid" or "remote candidates also welcome" while
-  // still being effectively on-site.
-  //
-  // Override threshold: explicit "fully remote" / "100% remote" /
-  // "remote-first" / "remote only" / "anywhere in <region>" is what we
-  // accept as a legitimate remote signal in the presence of a hybrid/
-  // onsite mention. Plain "remote" by itself is no longer enough.
+  // HARD reject: any hybrid wording. Per direction, we do NOT accept
+  // hybrid roles even if the rest of the post screams "remote-friendly".
+  // This gate runs before the onsite gate so it can't be overridden.
+  const hasHybrid = HYBRID_SIGNALS.some((s) => lower.includes(s));
+  if (hasHybrid) return { pass: false, reason: "hybrid-role" };
+
+  // Hard reject: on-site role. "remote" alone isn't strong enough — many
+  // posts say "remote-friendly" while still being effectively on-site.
+  // Override threshold: explicit strong-remote signal must be present.
   const hasOnsite = ONSITE_SIGNALS.some((s) => lower.includes(s));
   const hasStrongRemote =
     lower.includes("fully remote") ||
@@ -327,9 +342,8 @@ export function quickIntentFilter(content: string, headline: string = ""): { pas
     lower.includes("anywhere in the us") ||
     lower.includes("anywhere in europe") ||
     lower.includes("anywhere in the eu");
-  const hasRemote = lower.includes("remote");
   if (hasOnsite && !hasStrongRemote) {
-    return { pass: false, reason: "onsite-or-hybrid-role" };
+    return { pass: false, reason: "onsite-role" };
   }
 
   // Hard reject: explicit physical location pinned (📍 Location: City, ST)
