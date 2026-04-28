@@ -10,6 +10,7 @@
 
 import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { db, pool, schema } from "./db";
+import { istDayStart } from "./time";
 import type {
   ActionType,
   CommentStatus,
@@ -123,11 +124,15 @@ export class Store {
       .insert(schema.posts)
       .values({
         url: post.url,
+        linkedinPostId: post.linkedinPostId ?? null,
         authorName: post.authorName,
         authorHeadline: post.authorHeadline,
         authorUrl: post.authorUrl,
         content: post.content,
         engagementCount: post.engagementCount ?? 0,
+        engagementLikes: post.engagementLikes ?? null,
+        engagementComments: post.engagementComments ?? null,
+        engagementShares: post.engagementShares ?? null,
         scrapedAt: post.scrapedAt ? new Date(post.scrapedAt) : new Date(),
         queryUsed: post.queryUsed,
         source: "linkedin_jobs",
@@ -481,8 +486,7 @@ export class Store {
       drafts: number;
     };
 
-    const today = new Date();
-    today.setUTCHours(0, 0, 0, 0);
+    const today = istDayStart();
     const todayCounts = (await db.execute(sql`
       SELECT action_type, count(*)::int AS n
         FROM engagement_actions
@@ -510,8 +514,7 @@ export class Store {
   }
 
   async getTodayCount(action: ActionType): Promise<number> {
-    const today = new Date();
-    today.setUTCHours(0, 0, 0, 0);
+    const today = istDayStart();
     const map: Record<ActionType, "comment" | "connect" | "dm"> = {
       comment: "comment",
       connection: "connect",
@@ -532,8 +535,7 @@ export class Store {
   // ── Scrape runs (apify_runs + scrape_run_queries) ─────────────────────
 
   async getTodayScrapeFetched(): Promise<number> {
-    const today = new Date();
-    today.setUTCHours(0, 0, 0, 0);
+    const today = istDayStart();
     const rows = await db
       .select({
         n: sql<number>`coalesce(sum(${schema.scrapeRunQueries.fetched}), 0)::int`,

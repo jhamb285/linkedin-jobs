@@ -3,11 +3,20 @@
 export interface ScrapedPost {
   id: string;
   url: string;
+  /** LinkedIn's stable internal post ID (Apify `id` field). Optional —
+   *  not every actor exposes it; harvestapi always does. */
+  linkedinPostId?: string | null;
   authorName: string;
   authorHeadline: string;
   authorUrl: string;
   content: string;
+  /** Total likes + comments + shares — preserved for back-compat. */
   engagementCount: number;
+  /** Per-channel breakdowns when the actor exposes them. Null for actors
+   *  that only return a rolled-up count. */
+  engagementLikes?: number | null;
+  engagementComments?: number | null;
+  engagementShares?: number | null;
   scrapedAt: string;
   queryUsed: string;
 }

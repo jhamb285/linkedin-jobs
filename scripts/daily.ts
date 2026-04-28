@@ -26,6 +26,7 @@ import { recordEvent } from "../src/events";
 import { runScraper } from "../src/scraper";
 import { runScorer } from "../src/matcher";
 import { runGenerator } from "../src/commenter";
+import { formatIst } from "../src/time";
 import { eq, sql } from "drizzle-orm";
 
 const BATCH_TARGET_SIZE = 50;
@@ -138,7 +139,7 @@ async function main(): Promise<void> {
   const flags = parseFlags();
   const startedAt = new Date();
   console.log(
-    `\n=== daily pipeline @ ${startedAt.toISOString()} ===` +
+    `\n=== daily pipeline @ ${formatIst(startedAt)} ===` +
       (flags.dryRun ? " (dry-run)" : ""),
   );
 

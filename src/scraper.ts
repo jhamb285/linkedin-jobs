@@ -377,6 +377,11 @@ function normalizeApifyResult(raw: Record<string, unknown>, query: string): Scra
 
   if (!text || !postUrl) return null;
 
+  // LinkedIn's stable post ID. harvestapi exposes it as raw.id; apimaestro
+  // doesn't (we'll get null). Used as a secondary dedup key on top of URL.
+  const linkedinPostId =
+    typeof raw.id === "string" && raw.id.length > 0 ? raw.id : null;
+
   const author = (raw.author ?? {}) as Record<string, unknown>;
   const authorName = (author.name ?? "") as string;
   // harvestapi: author.info | apimaestro: author.headline
@@ -384,17 +389,27 @@ function normalizeApifyResult(raw: Record<string, unknown>, query: string): Scra
   // harvestapi: author.linkedinUrl | apimaestro: author.profile_url
   const authorUrl = (author.linkedinUrl ?? author.profile_url ?? "") as string;
 
-  // Engagement: harvestapi uses raw.engagement.likes etc. | apimaestro uses raw.stats.total_reactions
+  // Engagement breakdown.
+  // harvestapi: raw.engagement = { likes, comments, shares, reactions:{...}}
+  // apimaestro: raw.stats = { total_reactions, comments, ... }
   const engagement = (raw.engagement ?? {}) as Record<string, unknown>;
   const stats = (raw.stats ?? {}) as Record<string, unknown>;
-  const reactions =
+
+  const likes =
     (engagement.likes as number | undefined) ??
     (stats.total_reactions as number | undefined) ??
-    0;
+    null;
   const comments =
     (engagement.comments as number | undefined) ??
     (stats.comments as number | undefined) ??
-    0;
+    null;
+  const shares =
+    (engagement.shares as number | undefined) ??
+    (stats.shares as number | undefined) ??
+    null;
+
+  const totalEngagement =
+    (likes ?? 0) + (comments ?? 0) + (shares ?? 0);
 
   // Date: harvestapi uses raw.postedAt.date (ISO) | apimaestro uses raw.posted_at.date (string)
   const postedAt = (raw.postedAt ?? raw.posted_at) as Record<string, unknown> | undefined;
@@ -403,11 +418,15 @@ function normalizeApifyResult(raw: Record<string, unknown>, query: string): Scra
   return {
     id: postId(postUrl, text),
     url: postUrl,
+    linkedinPostId,
     authorName,
     authorHeadline,
     authorUrl,
     content: text.slice(0, 5000),
-    engagementCount: (reactions as number) + (comments as number),
+    engagementCount: totalEngagement,
+    engagementLikes: likes,
+    engagementComments: comments,
+    engagementShares: shares,
     scrapedAt: dateStr,
     queryUsed: query,
   };
@@ -503,15 +522,18 @@ export async function runScraper(config: AppConfig, store: Store): Promise<void>
     };
 
     try {
-      // harvestapi uses searchQueries array + maxPosts + sortBy:"date" + postedLimit:"week"
-      // (legacy apimaestro used keyword + limit + postedLimitDate)
+      // harvestapi: searchQueries array + maxPosts + sortBy:"date" + postedLimitDate.
+      // We use postedLimitDate (ISO 48h ago) instead of postedLimit:"week"
+      // for a deterministic 48h window — LinkedIn's "week" bucket is
+      // looser and pulls in stale posts.
+      // Legacy apimaestro used keyword + limit + postedLimitDate.
       const isHarvestApi = config.apifyActorId.startsWith("harvestapi/");
       const actorInput = isHarvestApi
         ? {
             searchQueries: [q.query],
             maxPosts: resultLimit,
             sortBy: "date",
-            postedLimit: "week",
+            postedLimitDate: dateCutoff,
           }
         : {
             keyword: q.query,

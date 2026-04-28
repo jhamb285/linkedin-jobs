@@ -98,14 +98,17 @@ bun test
 
 ## Cron schedule (live)
 
-The `daily` orchestrator runs **once a day at 10:00 IST (04:30 UTC)** on
-mediaos — a few hours after the EU/US workday so fresh posts have
-accumulated, and before AJ/PK start engaging with the queue.
+The `daily` orchestrator runs **once a day at 10:00 IST** on mediaos —
+a few hours after the EU/US workday so fresh posts have accumulated,
+and before AJ/PK start engaging with the queue. The cron uses
+`CRON_TZ=Asia/Kolkata` so the line reads in IST wall-clock instead of
+UTC.
 
-Active crontab line (Phase 9 deploy):
+Active crontab block (Phase 9 deploy):
 
 ```cron
-30 4 * * *  cd /opt/automations/inbound/linkedin-jobs && /usr/local/bin/bun run daily >> /var/log/linkedin-jobs/daily.log 2>&1
+CRON_TZ=Asia/Kolkata
+0 10 * * *  cd /opt/automations/inbound/linkedin-jobs && /usr/local/bin/bun run daily >> /var/log/linkedin-jobs/daily.log 2>&1
 ```
 
 Manual invocation locally:

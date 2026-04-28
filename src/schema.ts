@@ -153,11 +153,15 @@ export const posts = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     url: text("url").notNull().unique(),
+    linkedinPostId: text("linkedin_post_id"),
     authorName: text("author_name"),
     authorHeadline: text("author_headline"),
     authorUrl: text("author_url"),
     content: text("content"),
     engagementCount: integer("engagement_count").notNull().default(0),
+    engagementLikes: integer("engagement_likes"),
+    engagementComments: integer("engagement_comments"),
+    engagementShares: integer("engagement_shares"),
     scrapedAt: timestamp("scraped_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -167,6 +171,9 @@ export const posts = pgTable(
   (t) => ({
     scrapedAtIdx: index("posts_scraped_at_idx").on(t.scrapedAt.desc()),
     sourceIdx: index("posts_source_idx").on(t.source),
+    linkedinPostIdIdx: uniqueIndex("posts_linkedin_post_id_uniq").on(
+      t.linkedinPostId,
+    ),
   }),
 );
 
