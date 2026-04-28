@@ -1,49 +1,10 @@
-import type { AppConfig, ActionType } from "./types";
-import type { Store } from "./store";
-import { getDailyLimit, randomDelay } from "./config";
+/**
+ * REMOVED in Phase 6.
+ *
+ * The PhantomBuster scheduler (rate-limit pacing for the auto-poster)
+ * lived here. The new platform doesn't auto-post; the daily volume cap
+ * is enforced at the Today UI layer instead. Empty re-export so any
+ * stale imports keep typechecking.
+ */
 
-export class RateLimiter {
-  constructor(
-    private config: AppConfig,
-    private store: Store
-  ) {}
-
-  canPerform(action: ActionType): boolean {
-    const today = this.store.getTodayCount(action);
-
-    switch (action) {
-      case "comment":
-        return today < getDailyLimit(this.config);
-      case "connection":
-        return today < this.config.maxConnectionsPerDay;
-      case "dm":
-        return today < this.config.maxDmsPerDay;
-      default:
-        return false;
-    }
-  }
-
-  getRemainingToday(action: ActionType): number {
-    const today = this.store.getTodayCount(action);
-
-    switch (action) {
-      case "comment":
-        return Math.max(0, getDailyLimit(this.config) - today);
-      case "connection":
-        return Math.max(0, this.config.maxConnectionsPerDay - today);
-      case "dm":
-        return Math.max(0, this.config.maxDmsPerDay - today);
-      default:
-        return 0;
-    }
-  }
-
-  async waitBeforeNext(): Promise<void> {
-    const delay = randomDelay(
-      this.config.commentDelayMinMs,
-      this.config.commentDelayMaxMs
-    );
-    console.log(`  [rate-limit] Waiting ${Math.round(delay / 60000)}m...`);
-    await new Promise((resolve) => setTimeout(resolve, delay));
-  }
-}
+export {};

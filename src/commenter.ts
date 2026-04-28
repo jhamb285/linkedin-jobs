@@ -42,7 +42,7 @@ export async function runGenerator(
   store: Store,
   dryRun: boolean = false
 ): Promise<void> {
-  const leads = store.getHighScoringUncommented(config.scoringThreshold);
+  const leads = await store.getHighScoringUncommented(config.scoringThreshold);
 
   if (leads.length === 0) {
     console.log("No high-scoring posts without comments.");
@@ -59,7 +59,7 @@ export async function runGenerator(
   let skipped = 0;
 
   for (const lead of leads) {
-    if (store.wasAuthorCommentedRecently(lead.author_url ?? "")) {
+    if (await store.wasAuthorCommentedRecently(lead.author_url ?? "")) {
       console.log(`  [skip] Already engaged with ${lead.author_name} recently`);
       skipped++;
       continue;
@@ -87,11 +87,11 @@ export async function runGenerator(
         console.log(`    PK Comment: "${content.commentPk.slice(0, 100)}..."`);
         console.log();
       } else {
-        // Store primary comment (PK version) in comments table for existing flows
-        store.insertComment(lead.id, content.commentPk);
-
-        // Store full dual-persona content in lead_content table
-        store.insertLeadContent(lead.id, content.summary, {
+        // Write the dual-persona content as TWO engagement_drafts rows
+        // (one per founder). The legacy `comments` / `lead_content` tables
+        // don't exist in the new schema; insertLeadContent does the
+        // upsert-by-(post_id, user_id) for us.
+        await store.insertLeadContent(lead.id, content.summary, {
           commentAj: content.commentAj,
           commentPk: content.commentPk,
           connectionNoteAj: content.connectionNoteAj,
@@ -101,7 +101,7 @@ export async function runGenerator(
         });
 
         console.log(
-          `  [queued] ${lead.author_name} → AJ + PK comments + connection notes + DMs`
+          `  [queued] ${lead.author_name} → AJ + PK engagement_drafts`,
         );
       }
 

@@ -424,7 +424,7 @@ export async function runScraper(config: AppConfig, store: Store): Promise<void>
 
   // Daily hard cap on fetched items (Apify bills per fetched item).
   const cap = config.dailyScrapeCap;
-  const todayAlready = store.getTodayScrapeFetched();
+  const todayAlready = await store.getTodayScrapeFetched();
   const remainingBudget = Math.max(0, cap - todayAlready);
   console.log(`Daily cap: ${cap} | fetched today so far: ${todayAlready} | remaining budget: ${remainingBudget}`);
 
@@ -433,7 +433,7 @@ export async function runScraper(config: AppConfig, store: Store): Promise<void>
     return;
   }
 
-  const runId = store.startScrapeRun();
+  const runId = await store.startScrapeRun();
   let fetchedThisRun = 0;
   let actorRuns = 0;
   let capped = false;
@@ -473,7 +473,7 @@ export async function runScraper(config: AppConfig, store: Store): Promise<void>
     // Per-query counters — persisted to scrape_run_queries at end of loop body
     // so the analytics leaderboard can answer "which query has best yield".
     const queryStartedAt = new Date().toISOString();
-    const queryRowId = store.startQueryRecord(runId, q, queryStartedAt);
+    const queryRowId = await store.startQueryRecord(runId, q, queryStartedAt);
     const queryCounts: QueryRunCounts = {
       fetched: 0,
       inserted: 0,
@@ -572,7 +572,7 @@ export async function runScraper(config: AppConfig, store: Store): Promise<void>
           continue;
         }
 
-        const inserted = store.insertPost(post);
+        const inserted = await store.insertPost(post);
         if (inserted) {
           queryCounts.inserted++;
           newCount++;
@@ -592,11 +592,11 @@ export async function runScraper(config: AppConfig, store: Store): Promise<void>
 
     // Finalize per-query record (always runs, even on error — stub rows with
     // completed_at set + error text are visible to the leaderboard).
-    store.finishQueryRecord(queryRowId, queryCounts);
+    await store.finishQueryRecord(queryRowId, queryCounts);
   }
 
   const estimatedCost = fetchedThisRun * config.apifyCostPerLead;
-  store.finishScrapeRun(runId, {
+  await store.finishScrapeRun(runId, {
     leadsFetched: fetchedThisRun,
     leadsInserted: totalNew,
     actorRuns,

@@ -99,41 +99,51 @@ async function writeToSheet(
 export async function exportLeads(store: Store, config: AppConfig): Promise<void> {
   ensureExportDir();
 
-  const db = (store as any).db;
-
-  // FULL refresh mode: if FULL_EXPORT env var is set, export everything.
-  // Otherwise: only export leads that haven't been exported yet (append-only).
+  // FULL_EXPORT toggle is preserved as a CLI affordance even though the new
+  // schema doesn't track an `exported_at` column — Phase 6 always re-exports
+  // the full lead set. The flag is a no-op for now; Phase 7+ can add an
+  // exports audit table if append-only behaviour becomes useful again.
   const fullExport = process.env.FULL_EXPORT === "1";
+  void fullExport;
 
-  const whereClause = fullExport
-    ? ""
-    : "AND (p.exported_at IS NULL OR p.exported_at = '')";
+  const allLeadsRaw = await store.getLeadsForExport({ fullExport });
 
-  const allLeads = db.prepare(`
-    SELECT
-      p.id as post_id,
-      p.author_name, p.author_headline, p.author_url, p.url as post_url,
-      p.content as post_content, p.scraped_at, p.query_used,
-      s.total, s.relevance, s.fit, s.urgency, s.engagement_potential,
-      s.positioning, s.reasoning,
-      c.status as comment_status,
-      lc.summary, lc.comment, lc.connection_note, lc.dm,
-      lc.comment_aj, lc.comment_pk,
-      lc.connection_note_aj, lc.connection_note_pk,
-      lc.dm_aj, lc.dm_pk
-    FROM posts p
-    JOIN scores s ON p.id = s.post_id
-    LEFT JOIN comments c ON p.id = c.post_id
-    LEFT JOIN lead_content lc ON p.id = lc.post_id
-    WHERE 1=1 ${whereClause}
-    ORDER BY s.total DESC
-  `).all() as Array<Record<string, unknown>>;
-
-  if (allLeads.length === 0) {
-    console.log("No new leads to export. Everything already in sheet.");
-    console.log("(Use FULL_EXPORT=1 bun run leads to force full re-export)");
+  if (allLeadsRaw.length === 0) {
+    console.log("No leads to export.");
     return;
   }
+
+  // Re-shape into the legacy Record<string, unknown> rows the rest of the
+  // function consumes, so the Sheets layout stays byte-identical to the
+  // SQLite-era export.
+  const allLeads = allLeadsRaw.map((r) => ({
+    post_id: r.postId,
+    author_name: r.authorName,
+    author_headline: r.authorHeadline,
+    author_url: r.authorUrl,
+    post_url: r.url,
+    post_content: r.postContent,
+    scraped_at: r.scrapedAt,
+    query_used: r.queryUsed,
+    total: r.total,
+    relevance: r.relevance,
+    fit: r.fit,
+    urgency: r.urgency,
+    engagement_potential: r.engagementPotential,
+    positioning: r.positioning,
+    reasoning: r.reasoning,
+    comment_status: r.commentPk || r.commentAj ? "queued" : "pending",
+    summary: r.postContent,
+    comment: r.commentPk,
+    connection_note: r.connectionNotePk,
+    dm: r.dmPk,
+    comment_aj: r.commentAj,
+    comment_pk: r.commentPk,
+    connection_note_aj: r.connectionNoteAj,
+    connection_note_pk: r.connectionNotePk,
+    dm_aj: r.dmAj,
+    dm_pk: r.dmPk,
+  }));
 
   const approvedLeads = allLeads.filter(
     (l) => ((l.fit as number) || 0) > 0 && ((l.total as number) || 0) >= config.scoringThreshold
@@ -262,19 +272,7 @@ export async function exportLeads(store: Store, config: AppConfig): Promise<void
     }
   }
 
-  // Mark posts as exported in DB (both approved and rejected)
-  const now = new Date().toISOString();
-  const stmt = db.prepare("UPDATE posts SET exported_at = ? WHERE id = ?");
-  if (leadsWritten.ok) {
-    for (const lead of approvedLeads) {
-      stmt.run(now, lead.post_id as string);
-    }
-  }
-  if (rejectedWritten.ok) {
-    for (const lead of rejectedLeads) {
-      stmt.run(now, lead.post_id as string);
-    }
-  }
+  // (No exported_at column in the new schema — full re-export every run.)
 
   // Local CSV backups (always append mode)
   writeFileSync(join(EXPORT_DIR, "leads.csv"), toCsv(leadsHeaders, leadsRows));
@@ -343,132 +341,45 @@ async function colorCodeRange(
 }
 
 /**
- * Export approved comments to "Comments" tab for PhantomBuster Auto Commenter.
- * Also usable for manual copy-paste commenting.
+ * Legacy PhantomBuster "Comments" tab export.
+ *
+ * The Comments / Connections / DMs tabs were the SQLite-era handoff to
+ * PhantomBuster's Auto Commenter / Network Booster / Message Sender.
+ * The new platform routes all of that through engagement_drafts +
+ * the Today UI (manual send, no auto-poster) — see LEAD_MAGNET_AUDIT.md
+ * decision #6. We keep these CLI commands as no-ops so existing scripts
+ * that call `bun run export|connect|dm` don't crash; the canonical path
+ * is now `bun run leads`.
  */
-export async function exportComments(store: Store, config: AppConfig): Promise<string> {
-  ensureExportDir();
-
-  const approved = store.getApprovedComments();
-  if (approved.length === 0) {
-    console.log("No approved comments to export.");
-    return "";
-  }
-
-  const headers = ["postUrl", "comment", "Author", "Status"];
-  const rows = approved.map((c) => [
-    c.postUrl,
-    c.comment_text,
-    (c as any).authorName || "",
-    "Ready",
-  ]);
-
-  await writeToSheet(config, "Comments", headers, rows);
-
-  const csv = toCsv(headers, rows);
-  const path = join(EXPORT_DIR, "pb-comments.csv");
-  writeFileSync(path, csv);
-
-  console.log(`\nExported ${approved.length} comments`);
-  console.log(`  CSV: ${path}`);
-  return path;
+export async function exportComments(_store: Store, _config: AppConfig): Promise<string> {
+  console.log(
+    "exportComments is a no-op in the platform era — drafts live in engagement_drafts " +
+      "and ship via the Today UI. Use `bun run leads` for the unified Sheets export.",
+  );
+  return "";
 }
 
 /**
- * Export connection requests to "Connections" tab for PhantomBuster Network Booster.
- * Also usable for manual connecting.
+ * Legacy PhantomBuster "Connections" tab export — no-op now. See
+ * exportComments above.
  */
-export async function exportConnections(store: Store, config: AppConfig): Promise<string> {
-  ensureExportDir();
-
-  const ready = store.getReadyToConnect();
-  if (ready.length === 0) {
-    console.log("No leads ready for connection requests.");
-    return "";
-  }
-
-  const headers = ["profileUrl", "message", "Author", "Status"];
-  const rows = ready.map((lead) => {
-    const firstName = lead.authorName.split(" ")[0] || lead.authorName;
-    const note = buildConnectionNote(firstName, lead.postContent, lead.positioning);
-    return [lead.authorUrl, note, lead.authorName, "Ready"];
-  });
-
-  await writeToSheet(config, "Connections", headers, rows);
-
-  const csv = toCsv(headers, rows);
-  const path = join(EXPORT_DIR, "pb-connections.csv");
-  writeFileSync(path, csv);
-
-  // Create DM entries in DB for follow-up
-  for (const lead of ready) {
-    store.insertDm(lead.postId, lead.authorUrl, "");
-  }
-
-  console.log(`\nExported ${ready.length} connection requests`);
-  console.log(`  CSV: ${path}`);
-  return path;
+export async function exportConnections(_store: Store, _config: AppConfig): Promise<string> {
+  console.log(
+    "exportConnections is a no-op in the platform era — connection notes live " +
+      "in engagement_drafts and ship via the Today UI.",
+  );
+  return "";
 }
 
 /**
- * Generate + export DMs to "DMs" tab for PhantomBuster Message Sender.
- * Also usable for manual DM sending.
+ * Legacy PhantomBuster "DMs" tab export — no-op now. See exportComments above.
  */
-export async function exportDms(store: Store, config: AppConfig): Promise<string> {
-  ensureExportDir();
-
-  const ready = store.getReadyDms();
-  if (ready.length === 0) {
-    console.log("No leads ready for DM (connections need 12+ hours).");
-    return "";
-  }
-
-  const genAI = new GoogleGenerativeAI(config.geminiApiKey);
-  const model = genAI.getGenerativeModel({ model: config.geminiModel });
-  const template = loadPrompt("dm-prompt");
-
-  const headers = ["profileUrl", "message", "Author", "Status"];
-  const rows: string[][] = [];
-
-  console.log(`Generating DMs for ${ready.length} leads...\n`);
-
-  for (const lead of ready) {
-    try {
-      const prompt = template
-        .replace("{post_content_summary}", lead.postContent.slice(0, 200))
-        .replace("{comment_summary}", lead.commentText.slice(0, 100))
-        .replace("{their_need}", lead.postContent.slice(0, 150))
-        .replace("{positioning}", "consulting");
-
-      const result = await model.generateContent(prompt);
-      const dmText = result.response.text().trim();
-
-      if (!dmText) continue;
-
-      const authorName = lead.author_url.split("/").pop() || "";
-      rows.push([lead.author_url, dmText, authorName, "Ready"]);
-      store.updateDmStatus(lead.id, "exported");
-
-      console.log(`  [generated] ${authorName} — "${dmText.slice(0, 50)}..."`);
-    } catch (err) {
-      console.error(`  [!] Error for ${lead.author_url}: ${(err as Error).message}`);
-    }
-  }
-
-  if (rows.length === 0) {
-    console.log("No DMs generated.");
-    return "";
-  }
-
-  await writeToSheet(config, "DMs", headers, rows);
-
-  const csv = toCsv(headers, rows);
-  const path = join(EXPORT_DIR, "pb-dms.csv");
-  writeFileSync(path, csv);
-
-  console.log(`\nExported ${rows.length} DMs`);
-  console.log(`  CSV: ${path}`);
-  return path;
+export async function exportDms(_store: Store, _config: AppConfig): Promise<string> {
+  console.log(
+    "exportDms is a no-op in the platform era — DM drafts live in engagement_drafts " +
+      "and ship via the Today UI.",
+  );
+  return "";
 }
 
 function buildConnectionNote(firstName: string, postContent: string, positioning: string): string {

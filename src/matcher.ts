@@ -50,7 +50,7 @@ export async function runScorer(
   config: AppConfig,
   store: Store
 ): Promise<void> {
-  const unscored = store.getUnscoredPosts();
+  const unscored = await store.getUnscoredPosts();
   if (unscored.length === 0) {
     console.log("No unscored posts found.");
     return;
@@ -111,7 +111,7 @@ export async function runScorer(
         scoredAt: new Date().toISOString(),
       };
 
-      store.insertScore(score);
+      await store.insertScore(score);
       scored++;
 
       const marker = total >= config.scoringThreshold ? ">>>" : "   ";

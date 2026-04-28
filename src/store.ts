@@ -1,12 +1,23 @@
-import { Database } from "bun:sqlite";
+/**
+ * Postgres-backed Store for the linkedin-jobs CLI.
+ *
+ * Replaces the bun:sqlite Store from Phase 0 — same public API where the
+ * scrape/score/generate pipeline depends on it, no-op stubs for the legacy
+ * comments/dms/PhantomBuster paths that don't exist in the new platform
+ * schema. Pulls the Drizzle client + Postgres schema from src/db.ts (which
+ * shares schema with platform/web).
+ */
+
+import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
+import { db, pool, schema } from "./db";
 import type {
-  ScrapedPost,
+  ActionType,
+  CommentStatus,
+  PipelineStats,
   PostScore,
   QueuedComment,
   QueuedDm,
-  ActionType,
-  PipelineStats,
-  CommentStatus,
+  ScrapedPost,
   SearchQuery,
 } from "./types";
 
@@ -24,333 +35,293 @@ export interface QueryRunCounts {
   error: string | null;
 }
 
+const FOUNDER_EMAIL: Record<"aj" | "pk", string> = {
+  aj: "jhamb285@gmail.com",
+  pk: "pa.parikahlawat@gmail.com",
+};
+
 export class Store {
-  private db: Database;
-
-  constructor(dbPath: string) {
-    this.db = new Database(dbPath, { create: true });
-    this.db.exec("PRAGMA journal_mode = WAL");
-    this.db.exec("PRAGMA foreign_keys = ON");
-    this.migrate();
+  /**
+   * `_dbPath` is accepted but ignored — Postgres connection comes from
+   * DATABASE_URL via src/db.ts. Kept for source-compat with the legacy
+   * `new Store(config.dbPath)` call sites until they're cleaned up.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  constructor(_dbPath?: string) {
+    // no-op
   }
 
-  private migrate(): void {
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS posts (
-        id TEXT PRIMARY KEY,
-        url TEXT NOT NULL,
-        author_name TEXT,
-        author_headline TEXT,
-        author_url TEXT,
-        content TEXT,
-        engagement_count INTEGER DEFAULT 0,
-        scraped_at TEXT NOT NULL,
-        query_used TEXT
-      );
+  async close(): Promise<void> {
+    await pool.end();
+  }
 
-      CREATE TABLE IF NOT EXISTS scores (
-        post_id TEXT PRIMARY KEY REFERENCES posts(id),
-        relevance INTEGER NOT NULL,
-        fit INTEGER NOT NULL,
-        urgency INTEGER NOT NULL,
-        engagement_potential INTEGER NOT NULL,
-        total INTEGER NOT NULL,
-        positioning TEXT NOT NULL,
-        reasoning TEXT,
-        scored_at TEXT NOT NULL
-      );
+  // ── User-id resolution (cached) ────────────────────────────────────────
 
-      CREATE TABLE IF NOT EXISTS comments (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        post_id TEXT NOT NULL REFERENCES posts(id),
-        comment_text TEXT NOT NULL,
-        status TEXT NOT NULL DEFAULT 'pending',
-        generated_at TEXT NOT NULL,
-        reviewed_at TEXT,
-        posted_at TEXT,
-        bereach_response TEXT
-      );
+  private founderIds: { aj: string | null; pk: string | null } | null = null;
 
-      CREATE TABLE IF NOT EXISTS dms (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        post_id TEXT NOT NULL REFERENCES posts(id),
-        author_url TEXT NOT NULL,
-        connection_status TEXT DEFAULT 'pending',
-        dm_text TEXT NOT NULL,
-        status TEXT NOT NULL DEFAULT 'pending',
-        created_at TEXT NOT NULL,
-        sent_at TEXT
-      );
-
-      CREATE TABLE IF NOT EXISTS lead_content (
-        post_id TEXT PRIMARY KEY REFERENCES posts(id),
-        summary TEXT NOT NULL,
-        comment TEXT NOT NULL,
-        connection_note TEXT NOT NULL,
-        dm TEXT NOT NULL,
-        comment_aj TEXT,
-        comment_pk TEXT,
-        connection_note_aj TEXT,
-        connection_note_pk TEXT,
-        dm_aj TEXT,
-        dm_pk TEXT,
-        generated_at TEXT NOT NULL
-      );
-
-      CREATE TABLE IF NOT EXISTS activity_log (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        action TEXT NOT NULL,
-        target_url TEXT NOT NULL,
-        performed_at TEXT NOT NULL
-      );
-
-      CREATE INDEX IF NOT EXISTS idx_scores_total ON scores(total);
-      CREATE INDEX IF NOT EXISTS idx_comments_status ON comments(status);
-      CREATE INDEX IF NOT EXISTS idx_dms_status ON dms(status);
-      CREATE INDEX IF NOT EXISTS idx_activity_date ON activity_log(performed_at);
-
-      CREATE TABLE IF NOT EXISTS scrape_runs (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        started_at TEXT NOT NULL,
-        completed_at TEXT,
-        leads_fetched INTEGER DEFAULT 0,
-        leads_inserted INTEGER DEFAULT 0,
-        actor_runs INTEGER DEFAULT 0,
-        estimated_cost_usd REAL DEFAULT 0,
-        status TEXT NOT NULL DEFAULT 'running',
-        capped INTEGER DEFAULT 0,
-        error TEXT
-      );
-
-      CREATE INDEX IF NOT EXISTS idx_scrape_runs_started ON scrape_runs(started_at);
-
-      CREATE TABLE IF NOT EXISTS scrape_run_queries (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        run_id INTEGER NOT NULL REFERENCES scrape_runs(id) ON DELETE CASCADE,
-        query TEXT NOT NULL,
-        query_group TEXT,
-        tier INTEGER,
-        max_results INTEGER,
-        fetched INTEGER DEFAULT 0,
-        inserted INTEGER DEFAULT 0,
-        rejected_date INTEGER DEFAULT 0,
-        rejected_dedup_content INTEGER DEFAULT 0,
-        rejected_dedup_db INTEGER DEFAULT 0,
-        rejected_geo INTEGER DEFAULT 0,
-        rejected_geo_reason TEXT,
-        rejected_intent INTEGER DEFAULT 0,
-        rejected_intent_reason TEXT,
-        rejected_normalize INTEGER DEFAULT 0,
-        error TEXT,
-        started_at TEXT NOT NULL,
-        completed_at TEXT
-      );
-
-      CREATE INDEX IF NOT EXISTS idx_srq_run ON scrape_run_queries(run_id);
-      CREATE INDEX IF NOT EXISTS idx_srq_query ON scrape_run_queries(query);
-      CREATE INDEX IF NOT EXISTS idx_srq_started ON scrape_run_queries(started_at);
-    `);
-
-    // Additive: rejected_normalize counter added after initial table deploy.
-    // Idempotent ALTER pattern used elsewhere in this file.
-    try {
-      this.db.exec(
-        `ALTER TABLE scrape_run_queries ADD COLUMN rejected_normalize INTEGER DEFAULT 0`
-      );
-    } catch {
-      // Column already exists
+  private async loadFounderIds(): Promise<{ aj: string | null; pk: string | null }> {
+    if (this.founderIds) return this.founderIds;
+    const rows = await db
+      .select({ id: schema.users.id, email: schema.users.email })
+      .from(schema.users)
+      .where(eq(schema.users.role, "founder"));
+    const ids: { aj: string | null; pk: string | null } = { aj: null, pk: null };
+    for (const r of rows) {
+      if (r.email === FOUNDER_EMAIL.aj) ids.aj = r.id;
+      if (r.email === FOUNDER_EMAIL.pk) ids.pk = r.id;
     }
+    this.founderIds = ids;
+    return ids;
+  }
 
-    // Add persona columns to existing lead_content tables (idempotent)
-    const personaCols = [
-      "comment_aj", "comment_pk",
-      "connection_note_aj", "connection_note_pk",
-      "dm_aj", "dm_pk",
-    ];
-    for (const col of personaCols) {
-      try {
-        this.db.exec(`ALTER TABLE lead_content ADD COLUMN ${col} TEXT`);
-      } catch {
-        // Column already exists, ignore
-      }
+  // ── Author dedup ───────────────────────────────────────────────────────
+
+  async wasAuthorRecentlyScraped(authorUrl: string, days: number = 7): Promise<boolean> {
+    if (!authorUrl) return false;
+    const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    const rows = await db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(schema.posts)
+      .where(
+        and(
+          eq(schema.posts.authorUrl, authorUrl),
+          gte(schema.posts.scrapedAt, cutoff),
+        ),
+      );
+    return (rows[0]?.n ?? 0) > 0;
+  }
+
+  /**
+   * Replaces the legacy "did we comment on this author lately?" check.
+   * In the new schema we treat "we have an engagement_drafts row for any of
+   * this author's posts in the last N days" as the equivalent signal.
+   */
+  async wasAuthorCommentedRecently(authorUrl: string, days: number = 7): Promise<boolean> {
+    if (!authorUrl) return false;
+    const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    const rows = (await db.execute(sql`
+      SELECT count(*)::int AS n
+        FROM engagement_drafts d
+        JOIN posts p ON p.id = d.post_id
+       WHERE p.author_url = ${authorUrl}
+         AND d.generated_at >= ${cutoff}
+    `)).rows as Array<{ n: number }>;
+    return (rows[0]?.n ?? 0) > 0;
+  }
+
+  // ── Posts ──────────────────────────────────────────────────────────────
+
+  /**
+   * Insert a scraped post. Returns true iff a NEW row was created (false
+   * means the URL was already in the DB and the existing row was kept).
+   * After this call, `post.id` is rewritten in-place to the canonical
+   * Postgres UUID so downstream callers (matcher.insertScore, etc.) see
+   * a consistent id.
+   */
+  async insertPost(post: ScrapedPost): Promise<boolean> {
+    const inserted = await db
+      .insert(schema.posts)
+      .values({
+        url: post.url,
+        authorName: post.authorName,
+        authorHeadline: post.authorHeadline,
+        authorUrl: post.authorUrl,
+        content: post.content,
+        engagementCount: post.engagementCount ?? 0,
+        scrapedAt: post.scrapedAt ? new Date(post.scrapedAt) : new Date(),
+        queryUsed: post.queryUsed,
+        source: "linkedin_jobs",
+      })
+      .onConflictDoNothing({ target: schema.posts.url })
+      .returning({ id: schema.posts.id });
+
+    if (inserted.length > 0) {
+      post.id = inserted[0].id;
+      return true;
     }
-
-    // Track export status at the post level (covers both approved and rejected)
-    try {
-      this.db.exec(`ALTER TABLE posts ADD COLUMN exported_at TEXT`);
-    } catch {}
+    // Row already existed — look up its UUID so the caller can still chain.
+    const existing = await db
+      .select({ id: schema.posts.id })
+      .from(schema.posts)
+      .where(eq(schema.posts.url, post.url))
+      .limit(1);
+    if (existing.length) post.id = existing[0].id;
+    return false;
   }
 
-  // ── Author Dedup ──
+  async getUnscoredPosts(): Promise<ScrapedPost[]> {
+    const rows = await db
+      .select({
+        id: schema.posts.id,
+        url: schema.posts.url,
+        authorName: schema.posts.authorName,
+        authorHeadline: schema.posts.authorHeadline,
+        authorUrl: schema.posts.authorUrl,
+        content: schema.posts.content,
+        engagementCount: schema.posts.engagementCount,
+        scrapedAt: schema.posts.scrapedAt,
+        queryUsed: schema.posts.queryUsed,
+      })
+      .from(schema.posts)
+      .leftJoin(schema.scores, eq(schema.scores.postId, schema.posts.id))
+      .where(sql`${schema.scores.postId} IS NULL AND ${schema.posts.source} = 'linkedin_jobs'`);
 
-  wasAuthorScrapedThisWeek(authorUrl: string): boolean {
-    const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-    const row = this.db
-      .prepare(
-        `SELECT COUNT(*) as cnt FROM posts WHERE author_url = ? AND scraped_at > ?`
-      )
-      .get(authorUrl, cutoff) as { cnt: number };
-    return row.cnt > 0;
+    return rows.map((r) => ({
+      id: r.id,
+      url: r.url,
+      authorName: r.authorName ?? "",
+      authorHeadline: r.authorHeadline ?? "",
+      authorUrl: r.authorUrl ?? "",
+      content: r.content ?? "",
+      engagementCount: r.engagementCount ?? 0,
+      scrapedAt: r.scrapedAt.toISOString(),
+      queryUsed: r.queryUsed ?? "",
+    }));
   }
 
-  // ── Posts ──
-
-  insertPost(post: ScrapedPost): boolean {
-    const stmt = this.db.prepare(`
-      INSERT OR IGNORE INTO posts (id, url, author_name, author_headline, author_url, content, engagement_count, scraped_at, query_used)
-      VALUES ($id, $url, $authorName, $authorHeadline, $authorUrl, $content, $engagementCount, $scrapedAt, $queryUsed)
-    `);
-    const result = stmt.run({
-      $id: post.id,
-      $url: post.url,
-      $authorName: post.authorName,
-      $authorHeadline: post.authorHeadline,
-      $authorUrl: post.authorUrl,
-      $content: post.content,
-      $engagementCount: post.engagementCount,
-      $scrapedAt: post.scrapedAt,
-      $queryUsed: post.queryUsed,
-    });
-    return result.changes > 0;
-  }
-
-  private mapPost(row: Record<string, unknown>): ScrapedPost {
+  async getPostById(id: string): Promise<ScrapedPost | null> {
+    const rows = await db
+      .select()
+      .from(schema.posts)
+      .where(eq(schema.posts.id, id))
+      .limit(1);
+    if (!rows.length) return null;
+    const r = rows[0];
     return {
-      id: row.id as string,
-      url: row.url as string,
-      authorName: (row.author_name ?? row.authorName ?? "") as string,
-      authorHeadline: (row.author_headline ?? row.authorHeadline ?? "") as string,
-      authorUrl: (row.author_url ?? row.authorUrl ?? "") as string,
-      content: (row.content ?? "") as string,
-      engagementCount: (row.engagement_count ?? row.engagementCount ?? 0) as number,
-      scrapedAt: (row.scraped_at ?? row.scrapedAt ?? "") as string,
-      queryUsed: (row.query_used ?? row.queryUsed ?? "") as string,
+      id: r.id,
+      url: r.url,
+      authorName: r.authorName ?? "",
+      authorHeadline: r.authorHeadline ?? "",
+      authorUrl: r.authorUrl ?? "",
+      content: r.content ?? "",
+      engagementCount: r.engagementCount ?? 0,
+      scrapedAt: r.scrapedAt.toISOString(),
+      queryUsed: r.queryUsed ?? "",
     };
   }
 
-  getUnscoredPosts(): ScrapedPost[] {
-    const rows = this.db
-      .prepare(
-        `SELECT p.* FROM posts p LEFT JOIN scores s ON p.id = s.post_id WHERE s.post_id IS NULL`
-      )
-      .all() as Record<string, unknown>[];
-    return rows.map((r) => this.mapPost(r));
-  }
+  // ── Scores ─────────────────────────────────────────────────────────────
 
-  getPostById(id: string): ScrapedPost | null {
-    const row = this.db.prepare(`SELECT * FROM posts WHERE id = ?`).get(id) as Record<string, unknown> | undefined;
-    return row ? this.mapPost(row) : null;
-  }
-
-  // ── Scores ──
-
-  insertScore(score: PostScore): void {
-    this.db
-      .prepare(
-        `INSERT OR REPLACE INTO scores (post_id, relevance, fit, urgency, engagement_potential, total, positioning, reasoning, scored_at)
-       VALUES ($postId, $relevance, $fit, $urgency, $engagementPotential, $total, $positioning, $reasoning, $scoredAt)`
-      )
-      .run({
-        $postId: score.postId,
-        $relevance: score.relevance,
-        $fit: score.fit,
-        $urgency: score.urgency,
-        $engagementPotential: score.engagementPotential,
-        $total: score.total,
-        $positioning: score.positioning,
-        $reasoning: score.reasoning,
-        $scoredAt: score.scoredAt,
+  async insertScore(score: PostScore): Promise<void> {
+    await db
+      .insert(schema.scores)
+      .values({
+        postId: score.postId,
+        relevance: score.relevance,
+        fit: score.fit,
+        urgency: score.urgency,
+        engagementPotential: score.engagementPotential,
+        total: score.total,
+        positioning: score.positioning,
+        reasoning: score.reasoning,
+        scoredAt: score.scoredAt ? new Date(score.scoredAt) : new Date(),
+      })
+      .onConflictDoUpdate({
+        target: schema.scores.postId,
+        set: {
+          relevance: score.relevance,
+          fit: score.fit,
+          urgency: score.urgency,
+          engagementPotential: score.engagementPotential,
+          total: score.total,
+          positioning: score.positioning,
+          reasoning: score.reasoning,
+          scoredAt: score.scoredAt ? new Date(score.scoredAt) : new Date(),
+        },
       });
   }
 
-  getHighScoringUncommented(threshold: number): Array<ScrapedPost & PostScore> {
-    return this.db
-      .prepare(
-        `SELECT p.*, s.relevance, s.fit, s.urgency, s.engagement_potential, s.total, s.positioning, s.reasoning, s.scored_at
-       FROM posts p
-       JOIN scores s ON p.id = s.post_id
-       LEFT JOIN comments c ON p.id = c.post_id
-       WHERE s.total >= ? AND s.fit > 0 AND c.id IS NULL
-       ORDER BY s.total DESC`
-      )
-      .all(threshold) as Array<ScrapedPost & PostScore>;
+  /**
+   * Posts with score >= threshold and fit > 0 that don't yet have an
+   * engagement_drafts row for either persona. Returns the union of post +
+   * score columns the legacy generator expected (snake_case keys preserved
+   * for in-place use by commenter.ts).
+   */
+  async getHighScoringUncommented(
+    threshold: number,
+  ): Promise<
+    Array<
+      ScrapedPost & PostScore & {
+        author_url: string;
+        author_name: string;
+        author_headline: string;
+      }
+    >
+  > {
+    const rows = (await db.execute(sql`
+      SELECT
+        p.id, p.url, p.author_name, p.author_headline, p.author_url,
+        p.content, p.engagement_count, p.scraped_at, p.query_used,
+        s.relevance, s.fit, s.urgency,
+        s.engagement_potential AS "engagementPotential",
+        s.total, s.positioning, s.reasoning,
+        s.scored_at AS "scoredAt"
+      FROM posts p
+      JOIN scores s ON s.post_id = p.id
+      LEFT JOIN engagement_drafts d ON d.post_id = p.id
+      WHERE p.source = 'linkedin_jobs'
+        AND s.total >= ${threshold}
+        AND s.fit > 0
+      GROUP BY p.id, s.post_id
+      HAVING count(d.id) = 0
+      ORDER BY s.total DESC
+    `)).rows as Array<{
+      id: string;
+      url: string;
+      author_name: string | null;
+      author_headline: string | null;
+      author_url: string | null;
+      content: string | null;
+      engagement_count: number | null;
+      scraped_at: Date;
+      query_used: string | null;
+      relevance: number;
+      fit: number;
+      urgency: number;
+      engagementPotential: number;
+      total: number;
+      positioning: string;
+      reasoning: string | null;
+      scoredAt: Date;
+    }>;
+
+    return rows.map((r) => ({
+      // ScrapedPost shape
+      id: r.id,
+      url: r.url,
+      authorName: r.author_name ?? "",
+      authorHeadline: r.author_headline ?? "",
+      authorUrl: r.author_url ?? "",
+      content: r.content ?? "",
+      engagementCount: r.engagement_count ?? 0,
+      scrapedAt: toIso(r.scraped_at),
+      queryUsed: r.query_used ?? "",
+      // PostScore shape (overlapping postId)
+      postId: r.id,
+      relevance: r.relevance,
+      fit: r.fit,
+      urgency: r.urgency,
+      engagementPotential: r.engagementPotential,
+      total: r.total,
+      positioning: r.positioning as PostScore["positioning"],
+      reasoning: r.reasoning ?? "",
+      scoredAt: toIso(r.scoredAt),
+      // snake_case duplicates for the legacy commenter.ts callers
+      author_url: r.author_url ?? "",
+      author_name: r.author_name ?? "",
+      author_headline: r.author_headline ?? "",
+    }));
   }
 
-  wasAuthorCommentedRecently(authorUrl: string, days: number = 7): boolean {
-    const cutoff = new Date(
-      Date.now() - days * 24 * 60 * 60 * 1000
-    ).toISOString();
-    const row = this.db
-      .prepare(
-        `SELECT COUNT(*) as cnt FROM comments c
-       JOIN posts p ON c.post_id = p.id
-       WHERE p.author_url = ? AND c.status IN ('approved', 'posted') AND c.generated_at > ?`
-      )
-      .get(authorUrl, cutoff) as { cnt: number };
-    return row.cnt > 0;
-  }
+  // ── Engagement drafts (replaces legacy lead_content + comments) ───────
 
-  // ── Comments ──
-
-  insertComment(postId: string, text: string): number {
-    const result = this.db
-      .prepare(
-        `INSERT INTO comments (post_id, comment_text, status, generated_at)
-       VALUES (?, ?, 'pending', ?)`
-      )
-      .run(postId, text, new Date().toISOString());
-    return Number(result.lastInsertRowid);
-  }
-
-  getPendingComments(): Array<QueuedComment & { postContent: string; authorName: string; postUrl: string }> {
-    return this.db
-      .prepare(
-        `SELECT c.*, p.content as postContent, p.author_name as authorName, p.url as postUrl
-       FROM comments c JOIN posts p ON c.post_id = p.id
-       WHERE c.status = 'pending'
-       ORDER BY c.generated_at ASC`
-      )
-      .all() as Array<QueuedComment & { postContent: string; authorName: string; postUrl: string }>;
-  }
-
-  getApprovedComments(): Array<QueuedComment & { postUrl: string }> {
-    return this.db
-      .prepare(
-        `SELECT c.*, p.url as postUrl FROM comments c JOIN posts p ON c.post_id = p.id
-       WHERE c.status = 'approved' ORDER BY c.reviewed_at ASC`
-      )
-      .all() as Array<QueuedComment & { postUrl: string }>;
-  }
-
-  updateCommentStatus(
-    id: number,
-    status: CommentStatus,
-    extra?: { text?: string; bereachResponse?: string }
-  ): void {
-    const now = new Date().toISOString();
-    if (extra?.text) {
-      this.db
-        .prepare(
-          `UPDATE comments SET status = ?, comment_text = ?, reviewed_at = ? WHERE id = ?`
-        )
-        .run(status, extra.text, now, id);
-    } else if (extra?.bereachResponse) {
-      this.db
-        .prepare(
-          `UPDATE comments SET status = ?, posted_at = ?, bereach_response = ? WHERE id = ?`
-        )
-        .run(status, now, extra.bereachResponse, id);
-    } else {
-      const timeField = status === "posted" ? "posted_at" : "reviewed_at";
-      this.db
-        .prepare(`UPDATE comments SET status = ?, ${timeField} = ? WHERE id = ?`)
-        .run(status, now, id);
-    }
-  }
-
-  // ── Lead Content ──
-
-  insertLeadContent(
+  /**
+   * Writes the dual-persona generated content as TWO `engagement_drafts`
+   * rows (one for AJ, one for PK), keyed on (post_id, user_id) so re-runs
+   * upsert cleanly. Replaces the legacy `insertLeadContent` which wrote a
+   * single denormalized row.
+   */
+  async insertLeadContent(
     postId: string,
     summary: string,
     content: {
@@ -360,260 +331,418 @@ export class Store {
       connectionNotePk: string;
       dmAj: string;
       dmPk: string;
-    }
-  ): void {
-    this.db
-      .prepare(
-        `INSERT OR REPLACE INTO lead_content
-         (post_id, summary, comment, connection_note, dm,
-          comment_aj, comment_pk, connection_note_aj, connection_note_pk, dm_aj, dm_pk,
-          generated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      )
-      .run(
-        postId,
-        summary,
-        content.commentPk, // Legacy: primary comment = PK
-        content.connectionNotePk,
-        content.dmPk,
-        content.commentAj,
-        content.commentPk,
-        content.connectionNoteAj,
-        content.connectionNotePk,
-        content.dmAj,
-        content.dmPk,
-        new Date().toISOString()
+      // Optional: the new schema also tracks email + follow-up. Caller may
+      // pass them; otherwise the column stays NULL.
+      emailAj?: string | null;
+      emailPk?: string | null;
+      emailSubjectAj?: string | null;
+      emailSubjectPk?: string | null;
+      followUpDmAj?: string | null;
+      followUpDmPk?: string | null;
+      followUpEmailAj?: string | null;
+      followUpEmailPk?: string | null;
+      followUpEmailSubjectAj?: string | null;
+      followUpEmailSubjectPk?: string | null;
+    },
+  ): Promise<void> {
+    const ids = await this.loadFounderIds();
+    if (!ids.aj || !ids.pk) {
+      throw new Error(
+        "Founder users (AJ, PK) not seeded in Postgres — run platform's `bun run db:seed` first.",
       );
-  }
-
-  // ── DMs ──
-
-  insertDm(postId: string, authorUrl: string, text: string): number {
-    const result = this.db
-      .prepare(
-        `INSERT INTO dms (post_id, author_url, dm_text, status, created_at)
-       VALUES (?, ?, ?, 'pending', ?)`
-      )
-      .run(postId, authorUrl, text, new Date().toISOString());
-    return Number(result.lastInsertRowid);
-  }
-
-  // Get leads ready for connection request (comment posted, no connection sent yet)
-  getReadyToConnect(): Array<{ postId: string; authorUrl: string; authorName: string; postContent: string; positioning: string }> {
-    return this.db
-      .prepare(
-        `SELECT p.id as postId, p.author_url as authorUrl, p.author_name as authorName,
-                p.content as postContent, s.positioning
-         FROM posts p
-         JOIN comments c ON p.id = c.post_id
-         JOIN scores s ON p.id = s.post_id
-         LEFT JOIN dms d ON p.id = d.post_id
-         WHERE c.status = 'posted' AND d.id IS NULL
-         ORDER BY c.posted_at ASC`
-      )
-      .all() as Array<{ postId: string; authorUrl: string; authorName: string; postContent: string; positioning: string }>;
-  }
-
-  // Get leads ready for DM (connection sent 12+ hours ago)
-  getReadyDms(): Array<QueuedDm & { postContent: string; commentText: string }> {
-    const cutoff = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
-    return this.db
-      .prepare(
-        `SELECT d.*, p.content as postContent, c.comment_text as commentText
-         FROM dms d
-         JOIN posts p ON d.post_id = p.id
-         JOIN comments c ON d.post_id = c.post_id
-         WHERE d.status = 'pending' AND d.connection_status = 'pending' AND d.created_at < ?
-         ORDER BY d.created_at ASC`
-      )
-      .all(cutoff) as Array<QueuedDm & { postContent: string; commentText: string }>;
-  }
-
-  updateDmStatus(id: number, status: string, extra?: { connectionStatus?: string; sentAt?: string }): void {
-    if (extra?.connectionStatus) {
-      this.db.prepare(`UPDATE dms SET status = ?, connection_status = ? WHERE id = ?`)
-        .run(status, extra.connectionStatus, id);
-    } else if (extra?.sentAt) {
-      this.db.prepare(`UPDATE dms SET status = ?, sent_at = ? WHERE id = ?`)
-        .run(status, extra.sentAt, id);
-    } else {
-      this.db.prepare(`UPDATE dms SET status = ? WHERE id = ?`).run(status, id);
     }
+
+    const baseValues = (
+      userId: string,
+      persona: "aj" | "pk",
+    ): typeof schema.engagementDrafts.$inferInsert => ({
+      postId,
+      userId,
+      comment: persona === "aj" ? content.commentAj : content.commentPk,
+      connectionNote:
+        persona === "aj" ? content.connectionNoteAj : content.connectionNotePk,
+      dm: persona === "aj" ? content.dmAj : content.dmPk,
+      email: persona === "aj" ? content.emailAj ?? null : content.emailPk ?? null,
+      emailSubject:
+        persona === "aj"
+          ? content.emailSubjectAj ?? null
+          : content.emailSubjectPk ?? null,
+      followUpDm:
+        persona === "aj"
+          ? content.followUpDmAj ?? null
+          : content.followUpDmPk ?? null,
+      followUpEmail:
+        persona === "aj"
+          ? content.followUpEmailAj ?? null
+          : content.followUpEmailPk ?? null,
+      followUpEmailSubject:
+        persona === "aj"
+          ? content.followUpEmailSubjectAj ?? null
+          : content.followUpEmailSubjectPk ?? null,
+      status: "pending",
+      generatedAt: new Date(),
+    });
+
+    for (const persona of ["aj", "pk"] as const) {
+      const userId = persona === "aj" ? ids.aj : ids.pk;
+      const value = baseValues(userId, persona);
+      await db
+        .insert(schema.engagementDrafts)
+        .values(value)
+        .onConflictDoUpdate({
+          target: [schema.engagementDrafts.postId, schema.engagementDrafts.userId],
+          set: {
+            comment: value.comment,
+            connectionNote: value.connectionNote,
+            dm: value.dm,
+            email: value.email,
+            emailSubject: value.emailSubject,
+            followUpDm: value.followUpDm,
+            followUpEmail: value.followUpEmail,
+            followUpEmailSubject: value.followUpEmailSubject,
+            generatedAt: new Date(),
+          },
+        });
+    }
+    // `summary` has no column in the new schema. The legacy `lead_content.summary`
+    // field was UI-only; the platform UI uses post.content directly.
+    void summary;
   }
 
-  // ── Activity Log ──
+  // ── Legacy outreach methods (no-ops on the new schema) ────────────────
+  //
+  // The `comments` and `dms` tables existed in the SQLite era for the
+  // PhantomBuster-style auto-poster. The new platform's UI flow uses
+  // engagement_drafts + engagement_actions, so these are no-ops.
 
-  logActivity(action: ActionType, targetUrl: string): void {
-    this.db
-      .prepare(
-        `INSERT INTO activity_log (action, target_url, performed_at) VALUES (?, ?, ?)`
-      )
-      .run(action, targetUrl, new Date().toISOString());
+  async insertComment(_postId: string, _text: string): Promise<number> {
+    return 0;
   }
 
-  getTodayCount(action: ActionType): number {
-    const today = new Date().toISOString().split("T")[0];
-    const row = this.db
-      .prepare(
-        `SELECT COUNT(*) as cnt FROM activity_log WHERE action = ? AND performed_at >= ?`
-      )
-      .get(action, today) as { cnt: number };
-    return row.cnt;
+  async insertDm(_postId: string, _authorUrl: string, _text: string): Promise<number> {
+    return 0;
   }
 
-  // ── Stats ──
+  async getPendingComments(): Promise<
+    Array<QueuedComment & { postContent: string; authorName: string; postUrl: string }>
+  > {
+    return [];
+  }
 
-  getStats(): PipelineStats {
-    const q = (sql: string): number => {
-      const row = this.db.prepare(sql).get() as { cnt: number };
-      return row.cnt;
+  async getApprovedComments(): Promise<Array<QueuedComment & { postUrl: string }>> {
+    return [];
+  }
+
+  async getReadyToConnect(): Promise<
+    Array<{
+      postId: string;
+      authorUrl: string;
+      authorName: string;
+      postContent: string;
+      positioning: string;
+    }>
+  > {
+    return [];
+  }
+
+  async getReadyDms(): Promise<Array<QueuedDm & { postContent: string; commentText: string }>> {
+    return [];
+  }
+
+  async updateCommentStatus(
+    _id: number,
+    _status: CommentStatus,
+    _extra?: { text?: string; bereachResponse?: string },
+  ): Promise<void> {
+    // no-op
+  }
+
+  async updateDmStatus(
+    _id: number,
+    _status: string,
+    _extra?: { connectionStatus?: string; sentAt?: string },
+  ): Promise<void> {
+    // no-op
+  }
+
+  // ── Stats ──────────────────────────────────────────────────────────────
+
+  async getStats(): Promise<PipelineStats> {
+    const totals = (await db.execute(sql`
+      SELECT
+        (SELECT count(*)::int FROM posts WHERE source = 'linkedin_jobs') AS total_posts,
+        (SELECT count(*)::int FROM posts p JOIN scores s ON s.post_id = p.id WHERE p.source = 'linkedin_jobs') AS scored,
+        (SELECT count(*)::int FROM posts p JOIN scores s ON s.post_id = p.id WHERE p.source = 'linkedin_jobs' AND s.total >= 25 AND s.fit > 0) AS high,
+        (SELECT count(*)::int FROM engagement_drafts) AS drafts
+    `)).rows[0] as {
+      total_posts: number;
+      scored: number;
+      high: number;
+      drafts: number;
     };
 
-    const today = new Date().toISOString().split("T")[0];
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    const todayCounts = (await db.execute(sql`
+      SELECT action_type, count(*)::int AS n
+        FROM engagement_actions
+       WHERE coalesce(posted_at, created_at) >= ${today}
+       GROUP BY action_type
+    `)).rows as Array<{ action_type: string; n: number }>;
+    const today_comments = todayCounts.find((r) => r.action_type === "comment")?.n ?? 0;
+    const today_connects = todayCounts.find((r) => r.action_type === "connect")?.n ?? 0;
+    const today_dms = todayCounts.find((r) => r.action_type === "dm")?.n ?? 0;
 
     return {
-      totalPosts: q("SELECT COUNT(*) as cnt FROM posts"),
-      scoredPosts: q("SELECT COUNT(*) as cnt FROM scores"),
-      highScorePosts: q("SELECT COUNT(*) as cnt FROM scores WHERE total >= 25"),
-      pendingComments: q(
-        "SELECT COUNT(*) as cnt FROM comments WHERE status = 'pending'"
-      ),
-      approvedComments: q(
-        "SELECT COUNT(*) as cnt FROM comments WHERE status = 'approved'"
-      ),
-      postedComments: q(
-        "SELECT COUNT(*) as cnt FROM comments WHERE status = 'posted'"
-      ),
-      rejectedComments: q(
-        "SELECT COUNT(*) as cnt FROM comments WHERE status = 'rejected'"
-      ),
-      pendingDms: q("SELECT COUNT(*) as cnt FROM dms WHERE status = 'pending'"),
-      sentDms: q("SELECT COUNT(*) as cnt FROM dms WHERE status = 'sent'"),
-      todayComments: q(
-        `SELECT COUNT(*) as cnt FROM activity_log WHERE action = 'comment' AND performed_at >= '${today}'`
-      ),
-      todayConnections: q(
-        `SELECT COUNT(*) as cnt FROM activity_log WHERE action = 'connection' AND performed_at >= '${today}'`
-      ),
-      todayDms: q(
-        `SELECT COUNT(*) as cnt FROM activity_log WHERE action = 'dm' AND performed_at >= '${today}'`
-      ),
+      totalPosts: totals.total_posts,
+      scoredPosts: totals.scored,
+      highScorePosts: totals.high,
+      pendingComments: totals.drafts,
+      approvedComments: 0,
+      postedComments: 0,
+      rejectedComments: 0,
+      pendingDms: 0,
+      sentDms: 0,
+      todayComments: today_comments,
+      todayConnections: today_connects,
+      todayDms: today_dms,
     };
   }
 
-  // ── Scrape Runs (cost + cap tracking) ──
-
-  startScrapeRun(): number {
-    const now = new Date().toISOString();
-    const result = this.db
-      .prepare(
-        `INSERT INTO scrape_runs (started_at, status) VALUES (?, 'running')`
-      )
-      .run(now);
-    return Number(result.lastInsertRowid);
+  async getTodayCount(action: ActionType): Promise<number> {
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    const map: Record<ActionType, "comment" | "connect" | "dm"> = {
+      comment: "comment",
+      connection: "connect",
+      dm: "dm",
+    };
+    const rows = await db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(schema.engagementActions)
+      .where(
+        and(
+          eq(schema.engagementActions.actionType, map[action]),
+          gte(schema.engagementActions.createdAt, today),
+        ),
+      );
+    return rows[0]?.n ?? 0;
   }
 
-  finishScrapeRun(
-    id: number,
-    params: {
+  // ── Scrape runs (apify_runs + scrape_run_queries) ─────────────────────
+
+  async getTodayScrapeFetched(): Promise<number> {
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    const rows = await db
+      .select({
+        n: sql<number>`coalesce(sum(${schema.scrapeRunQueries.fetched}), 0)::int`,
+      })
+      .from(schema.scrapeRunQueries)
+      .where(gte(schema.scrapeRunQueries.startedAt, today));
+    return rows[0]?.n ?? 0;
+  }
+
+  async startScrapeRun(): Promise<string> {
+    const inserted = await db
+      .insert(schema.apifyRuns)
+      .values({
+        runId: `cli-${Date.now()}`,
+        actor: "harvestapi/linkedin-post-search",
+        startedAt: new Date(),
+        status: "running",
+      })
+      .returning({ id: schema.apifyRuns.id });
+    return inserted[0].id;
+  }
+
+  async finishScrapeRun(
+    runId: string,
+    args: {
       leadsFetched: number;
       leadsInserted: number;
       actorRuns: number;
       estimatedCostUsd: number;
       capped: boolean;
-      error?: string;
-    }
-  ): void {
-    const now = new Date().toISOString();
-    const status = params.error ? "error" : params.capped ? "capped" : "ok";
-    this.db
-      .prepare(
-        `UPDATE scrape_runs
-         SET completed_at = ?, leads_fetched = ?, leads_inserted = ?,
-             actor_runs = ?, estimated_cost_usd = ?, capped = ?, status = ?, error = ?
-         WHERE id = ?`
-      )
-      .run(
-        now,
-        params.leadsFetched,
-        params.leadsInserted,
-        params.actorRuns,
-        params.estimatedCostUsd,
-        params.capped ? 1 : 0,
-        status,
-        params.error ?? null,
-        id
-      );
+    },
+  ): Promise<void> {
+    await db
+      .update(schema.apifyRuns)
+      .set({
+        completedAt: new Date(),
+        totalCostUsd: String(args.estimatedCostUsd),
+        status: args.capped ? "completed" : "completed",
+      })
+      .where(eq(schema.apifyRuns.id, runId));
   }
 
-  // ── Per-query records within a scrape run (analytics leaderboard) ──
-
-  startQueryRecord(runId: number, q: SearchQuery, startedAt: string): number {
-    const result = this.db
-      .prepare(
-        `INSERT INTO scrape_run_queries
-           (run_id, query, query_group, tier, max_results, started_at)
-         VALUES (?, ?, ?, ?, ?, ?)`
-      )
-      .run(
+  async startQueryRecord(
+    runId: string,
+    q: SearchQuery,
+    startedAt: string,
+  ): Promise<string> {
+    const inserted = await db
+      .insert(schema.scrapeRunQueries)
+      .values({
         runId,
-        q.query,
-        q.group ?? null,
-        q.tier ?? null,
-        q.maxResults ?? null,
-        startedAt
-      );
-    return Number(result.lastInsertRowid);
+        query: q.query,
+        queryGroup: q.group,
+        tier: q.tier != null ? String(q.tier) : null,
+        maxResults: q.maxResults ?? null,
+        startedAt: new Date(startedAt),
+      })
+      .returning({ id: schema.scrapeRunQueries.id });
+    return inserted[0].id;
   }
 
-  finishQueryRecord(id: number, counts: QueryRunCounts): void {
-    // Serialize reason maps as null when empty so analytics filtering
-    // `WHERE rejected_geo_reason IS NOT NULL` cleanly means "had rejections".
-    const geoJson = Object.keys(counts.geo_reasons).length
-      ? JSON.stringify(counts.geo_reasons)
-      : null;
-    const intentJson = Object.keys(counts.intent_reasons).length
-      ? JSON.stringify(counts.intent_reasons)
-      : null;
-    this.db
-      .prepare(
-        `UPDATE scrape_run_queries
-         SET fetched = ?, inserted = ?, rejected_date = ?,
-             rejected_dedup_content = ?, rejected_dedup_db = ?,
-             rejected_geo = ?, rejected_intent = ?, rejected_normalize = ?,
-             rejected_geo_reason = ?, rejected_intent_reason = ?,
-             error = ?, completed_at = ?
-         WHERE id = ?`
-      )
-      .run(
-        counts.fetched,
-        counts.inserted,
-        counts.rejected_date,
-        counts.rejected_dedup_content,
-        counts.rejected_dedup_db,
-        counts.rejected_geo,
-        counts.rejected_intent,
-        counts.rejected_normalize,
-        geoJson,
-        intentJson,
-        counts.error,
-        new Date().toISOString(),
-        id
-      );
+  async finishQueryRecord(
+    rowId: string,
+    counts: QueryRunCounts,
+  ): Promise<void> {
+    await db
+      .update(schema.scrapeRunQueries)
+      .set({
+        fetched: counts.fetched,
+        inserted: counts.inserted,
+        rejectedDate: counts.rejected_date,
+        rejectedDedupContent: counts.rejected_dedup_content,
+        rejectedDedupDb: counts.rejected_dedup_db,
+        rejectedGeo: counts.rejected_geo,
+        rejectedGeoReason: serializeReasons(counts.geo_reasons),
+        rejectedIntent: counts.rejected_intent,
+        rejectedIntentReason: serializeReasons(counts.intent_reasons),
+        rejectedNormalize: counts.rejected_normalize,
+        error: counts.error,
+        completedAt: new Date(),
+      })
+      .where(eq(schema.scrapeRunQueries.id, rowId));
   }
 
-  // Sum of leads_fetched across all runs started today (UTC).
-  getTodayScrapeFetched(): number {
-    const today = new Date().toISOString().split("T")[0];
-    const row = this.db
-      .prepare(
-        `SELECT COALESCE(SUM(leads_fetched), 0) as total FROM scrape_runs WHERE started_at >= ?`
-      )
-      .get(today) as { total: number };
-    return row.total;
-  }
+  // ── Lead export feed (used by exporter.ts) ────────────────────────────
 
-  close(): void {
-    this.db.close();
+  async getLeadsForExport(_args: {
+    fullExport: boolean;
+  }): Promise<
+    Array<{
+      postId: string;
+      url: string;
+      authorName: string;
+      authorHeadline: string;
+      authorUrl: string;
+      postContent: string;
+      scrapedAt: string;
+      queryUsed: string;
+      total: number;
+      relevance: number;
+      fit: number;
+      urgency: number;
+      engagementPotential: number;
+      positioning: string;
+      reasoning: string | null;
+      commentAj: string | null;
+      commentPk: string | null;
+      connectionNoteAj: string | null;
+      connectionNotePk: string | null;
+      dmAj: string | null;
+      dmPk: string | null;
+    }>
+  > {
+    const ids = await this.loadFounderIds();
+    if (!ids.aj || !ids.pk) {
+      throw new Error("Founder users not seeded — cannot export.");
+    }
+    const rows = (await db.execute(sql`
+      SELECT
+        p.id          AS post_id,
+        p.url         AS url,
+        p.author_name AS author_name,
+        p.author_headline AS author_headline,
+        p.author_url  AS author_url,
+        p.content     AS post_content,
+        p.scraped_at  AS scraped_at,
+        p.query_used  AS query_used,
+        s.total, s.relevance, s.fit, s.urgency,
+        s.engagement_potential AS "engagementPotential",
+        s.positioning, s.reasoning,
+        d_aj.comment          AS comment_aj,
+        d_pk.comment          AS comment_pk,
+        d_aj.connection_note  AS connection_note_aj,
+        d_pk.connection_note  AS connection_note_pk,
+        d_aj.dm               AS dm_aj,
+        d_pk.dm               AS dm_pk
+      FROM posts p
+      JOIN scores s ON s.post_id = p.id
+      LEFT JOIN engagement_drafts d_aj
+        ON d_aj.post_id = p.id AND d_aj.user_id = ${ids.aj}
+      LEFT JOIN engagement_drafts d_pk
+        ON d_pk.post_id = p.id AND d_pk.user_id = ${ids.pk}
+      WHERE p.source = 'linkedin_jobs'
+      ORDER BY s.total DESC
+    `)).rows as Array<{
+      post_id: string;
+      url: string;
+      author_name: string | null;
+      author_headline: string | null;
+      author_url: string | null;
+      post_content: string | null;
+      scraped_at: Date;
+      query_used: string | null;
+      total: number;
+      relevance: number;
+      fit: number;
+      urgency: number;
+      engagementPotential: number;
+      positioning: string;
+      reasoning: string | null;
+      comment_aj: string | null;
+      comment_pk: string | null;
+      connection_note_aj: string | null;
+      connection_note_pk: string | null;
+      dm_aj: string | null;
+      dm_pk: string | null;
+    }>;
+    return rows.map((r) => ({
+      postId: r.post_id,
+      url: r.url,
+      authorName: r.author_name ?? "",
+      authorHeadline: r.author_headline ?? "",
+      authorUrl: r.author_url ?? "",
+      postContent: r.post_content ?? "",
+      scrapedAt: toIso(r.scraped_at),
+      queryUsed: r.query_used ?? "",
+      total: r.total,
+      relevance: r.relevance,
+      fit: r.fit,
+      urgency: r.urgency,
+      engagementPotential: r.engagementPotential,
+      positioning: r.positioning,
+      reasoning: r.reasoning,
+      commentAj: r.comment_aj,
+      commentPk: r.comment_pk,
+      connectionNoteAj: r.connection_note_aj,
+      connectionNotePk: r.connection_note_pk,
+      dmAj: r.dm_aj,
+      dmPk: r.dm_pk,
+    }));
   }
 }
+
+function toIso(value: Date | string | null | undefined): string {
+  if (!value) return "";
+  if (value instanceof Date) return value.toISOString();
+  // db.execute returns timestamps as ISO strings already.
+  return new Date(value).toISOString();
+}
+
+function serializeReasons(reasons: Record<string, number>): string | null {
+  const keys = Object.keys(reasons);
+  if (keys.length === 0) return null;
+  return keys
+    .sort()
+    .map((k) => `${k}=${reasons[k]}`)
+    .join("; ");
+}
+
+// Suppress unused-import elimination for indexes we may need later.
+void inArray;
+void desc;

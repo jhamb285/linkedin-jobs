@@ -28,8 +28,8 @@ function printUsage(): void {
   console.log("Output:    CSVs in data/exports/ → upload to Google Sheets → PhantomBuster\n");
 }
 
-function printStats(store: Store): void {
-  const stats = store.getStats();
+async function printStats(store: Store): Promise<void> {
+  const stats = await store.getStats();
   const config = loadConfig();
 
   console.log("\n┌─────────────────────────────────────┐");
@@ -58,7 +58,7 @@ async function main(): Promise<void> {
   }
 
   const config = loadConfig();
-  const store = new Store(config.dbPath);
+  const store = new Store();
 
   try {
     switch (command) {
@@ -103,7 +103,7 @@ async function main(): Promise<void> {
         break;
       }
       case "status": {
-        printStats(store);
+        await printStats(store);
         break;
       }
       case "enrich-truncated": {
@@ -122,12 +122,12 @@ async function main(): Promise<void> {
         await runGenerator(config, store, true);
 
         console.log("\nDry-run complete. No comments were posted.");
-        printStats(store);
+        await printStats(store);
         break;
       }
     }
   } finally {
-    store.close();
+    await store.close();
   }
 }
 

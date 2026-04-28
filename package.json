@@ -13,14 +13,19 @@
     "dm": "bun run src/index.ts dm",
     "status": "bun run src/index.ts status",
     "dry-run": "bun run src/index.ts dry-run",
+    "smoke:store": "bun run scripts/smoke-store.ts",
     "test": "bun test"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "apify-client": "^2.11.0",
-    "googleapis": "^171.4.0"
+    "dotenv": "^16.4.5",
+    "drizzle-orm": "^0.45.2",
+    "googleapis": "^171.4.0",
+    "pg": "^8.13.1"
   },
   "devDependencies": {
-    "@types/bun": "^1.2.0"
+    "@types/bun": "^1.2.0",
+    "@types/pg": "^8.11.10"
   }
 }
