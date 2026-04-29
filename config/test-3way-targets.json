@@ -1,0 +1,992 @@
+[
+  {
+    "name": "Hugging Face",
+    "type": "company-ai-startup",
+    "country": "US",
+    "linkedinIdentifier": "huggingface",
+    "isCompany": true,
+    "linkedinUrl": "https://www.linkedin.com/company/huggingface",
+    "reason": "Major AI/ML platform with very active LinkedIn posting; frequently shares hiring posts including remote/contract ML engineering roles",
+    "confidence": "verified"
+  },
+  {
+    "name": "Mistral AI",
+    "type": "company-ai-startup",
+    "country": "FR",
+    "linkedinIdentifier": "mistralai",
+    "isCompany": true,
+    "linkedinUrl": "https://www.linkedin.com/company/mistralai",
+    "reason": "Paris-based open-source LLM lab; posts engineering hiring frequently to a large EU/global AI eng audience",
+    "confidence": "verified"
+  },
+  {
+    "name": "Anthropic",
+    "type": "company-ai-startup",
+    "country": "US",
+    "linkedinIdentifier": "anthropicresearch",
+    "isCompany": true,
+    "linkedinUrl": "https://www.linkedin.com/company/anthropicresearch",
+    "reason": "Frontier AI lab; posts hiring updates regularly across research/eng roles, some remote-friendly",
+    "confidence": "verified"
+  },
+  {
+    "name": "OpenAI",
+    "type": "company-ai-startup",
+    "country": "US",
+    "linkedinIdentifier": "openai",
+    "isCompany": true,
+    "linkedinUrl": "https://www.linkedin.com/company/openai",
+    "reason": "Posts hiring announcements regularly; very high reach; some contractor and remote engineering roles",
+    "confidence": "verified"
+  },
+  {
+    "name": "Cohere",
+    "type": "company-ai-startup",
+    "country": "CA",
+    "linkedinIdentifier": "cohere-ai",
+    "isCompany": true,
+    "linkedinUrl": "https://www.linkedin.com/company/cohere-ai",
+    "reason": "Enterprise AI foundation-model co; active hiring posts targeting remote/global AI engineers",
+    "confidence": "verified"
+  },
+  {
+    "name": "Pinecone",
+    "type": "company-ai-startup",
+    "country": "US",
+    "linkedinIdentifier": "pinecone-io",
+    "isCompany": true,
+    "linkedinUrl": "https://www.linkedin.com/company/pinecone-io",
+    "reason": "Vector DB infra startup; posts engineering hiring including remote roles",
+    "confidence": "verified"
+  },
+  {
+    "name": "Synthesia",
+    "type": "company-ai-startup",
+    "country": "GB",
+    "linkedinIdentifier": "synthesia-technologies",
+    "isCompany": true,
+    "linkedinUrl": "https://www.linkedin.com/company/synthesia-technologies",
+    "reason": "UK AI video unicorn; posts AI/ML eng hiring across UK + remote",
+    "confidence": "verified"
+  },
+  {
+    "name": "Helsing",
+    "type": "company-ai-startup",
+    "country": "DE",
+    "linkedinIdentifier": "helsing",
+    "isCompany": true,
+    "linkedinUrl": "https://www.linkedin.com/company/helsing",
+    "reason": "EU defense AI unicorn; posts engineering hiring for DE/UK/FR offices",
+    "confidence": "verified"
+  },
+  {
+    "name": "Black Forest Labs",
+    "type": "company-ai-startup",
+    "country": "DE",
+    "linkedinIdentifier": "bflai",
+    "isCompany": true,
+    "linkedinUrl": "https://www.linkedin.com/company/bflai",
+    "reason": "Germany-based image/diffusion model lab; active hiring posts to AI eng community",
+    "confidence": "verified"
+  },
+  {
+    "name": "DeepL",
+    "type": "company-ai-startup",
+    "country": "DE",
+    "linkedinIdentifier": "deepl",
+    "isCompany": true,
+    "linkedinUrl": "https://www.linkedin.com/company/deepl",
+    "reason": "German AI translation co; posts ML/AI hiring including remote-friendly EU roles",
+    "confidence": "likely"
+  },
+  {
+    "name": "ElevenLabs",
+    "type": "company-ai-startup",
+    "country": "GB",
+    "linkedinIdentifier": "elevenlabsio",
+    "isCompany": true,
+    "linkedinUrl": "https://www.linkedin.com/company/elevenlabsio",
+    "reason": "Voice/audio AI co with UK+US+PL presence; remote-first hiring posts common",
+    "confidence": "likely"
+  },
+  {
+    "name": "Lovable",
+    "type": "company-ai-startup",
+    "country": "SE",
+    "linkedinIdentifier": "lovable-dev",
+    "isCompany": true,
+    "linkedinUrl": "https://www.linkedin.com/company/lovable-dev",
+    "reason": "Stockholm AI dev-tooling unicorn; posts engineering hiring including remote",
+    "confidence": "likely"
+  },
+  {
+    "name": "Sana",
+    "type": "company-ai-startup",
+    "country": "SE",
+    "linkedinIdentifier": "sana-labs",
+    "isCompany": true,
+    "linkedinUrl": "https://www.linkedin.com/company/sana-labs",
+    "reason": "Stockholm enterprise-AI; active hiring posts including remote ML engineering",
+    "confidence": "verified"
+  },
+  {
+    "name": "Anysphere (Cursor)",
+    "type": "company-ai-startup",
+    "country": "US",
+    "linkedinIdentifier": "anysphereinc",
+    "isCompany": true,
+    "linkedinUrl": "https://www.linkedin.com/company/anysphereinc",
+    "reason": "Cursor maker; posts engineering hiring and reaches massive AI eng audience",
+    "confidence": "likely"
+  },
+  {
+    "name": "Decagon",
+    "type": "company-ai-startup",
+    "country": "US",
+    "linkedinIdentifier": "decagon-ai",
+    "isCompany": true,
+    "linkedinUrl": "https://www.linkedin.com/company/decagon-ai",
+    "reason": "AI agent customer-service co; posts engineering hiring inc. some remote",
+    "confidence": "verified"
+  },
+  {
+    "name": "Tomoro",
+    "type": "company-ai-startup",
+    "country": "GB",
+    "linkedinIdentifier": "tomoro-ai",
+    "isCompany": true,
+    "linkedinUrl": "https://www.linkedin.com/company/tomoro-ai",
+    "reason": "UK applied-AI consultancy in alliance with OpenAI; ~50 emp, posts senior applied-AI eng hiring inc. remote/contract",
+    "confidence": "verified"
+  },
+  {
+    "name": "Tessl",
+    "type": "company-ai-startup",
+    "country": "GB",
+    "linkedinIdentifier": "tesslio",
+    "isCompany": true,
+    "linkedinUrl": "https://www.linkedin.com/company/tesslio",
+    "reason": "London AI-native dev startup (Guy Podjarny, ex-Snyk); posts AI eng hiring",
+    "confidence": "verified"
+  },
+  {
+    "name": "PolyAI",
+    "type": "company-ai-startup",
+    "country": "GB",
+    "linkedinIdentifier": "polyai",
+    "isCompany": true,
+    "linkedinUrl": "https://www.linkedin.com/company/polyai",
+    "reason": "UK voice-AI; posts engineering hiring for UK + US + remote roles",
+    "confidence": "verified"
+  },
+  {
+    "name": "Causaly",
+    "type": "company-ai-startup",
+    "country": "GB",
+    "linkedinIdentifier": "causaly",
+    "isCompany": true,
+    "linkedinUrl": "https://www.linkedin.com/company/causaly",
+    "reason": "London AI for life-sciences; posts ML engineering hiring",
+    "confidence": "verified"
+  },
+  {
+    "name": "Mind Foundry",
+    "type": "company-ai-startup",
+    "country": "GB",
+    "linkedinIdentifier": "mind-foundry",
+    "isCompany": true,
+    "linkedinUrl": "https://www.linkedin.com/company/mind-foundry",
+    "reason": "Oxford AI spin-out; posts ML/AI hiring incl. remote-friendly UK roles",
+    "confidence": "verified"
+  },
+  {
+    "name": "Relevance AI",
+    "type": "company-ai-startup",
+    "country": "AU",
+    "linkedinIdentifier": "relevanceai",
+    "isCompany": true,
+    "linkedinUrl": "https://www.linkedin.com/company/relevanceai",
+    "reason": "Sydney/SF AI workforce platform (Series B); posts hiring across AU+US",
+    "confidence": "likely"
+  },
+  {
+    "name": "Leonardo.AI",
+    "type": "company-ai-startup",
+    "country": "AU",
+    "linkedinIdentifier": "leonardo-ai",
+    "isCompany": true,
+    "linkedinUrl": "https://www.linkedin.com/company/leonardo-ai",
+    "reason": "Sydney generative-AI image co (Canva subsidiary); posts AI eng hiring",
+    "confidence": "verified"
+  },
+  {
+    "name": "G42",
+    "type": "company-ai-startup",
+    "country": "AE",
+    "linkedinIdentifier": "g42ai",
+    "isCompany": true,
+    "linkedinUrl": "https://www.linkedin.com/company/g42ai",
+    "reason": "UAE AI conglomerate; posts hiring including AI eng roles in MENA region",
+    "confidence": "verified"
+  },
+  {
+    "name": "Inception (G42)",
+    "type": "company-ai-startup",
+    "country": "AE",
+    "linkedinIdentifier": "inception-g42-company",
+    "isCompany": true,
+    "linkedinUrl": "https://www.linkedin.com/company/inception-g42-company",
+    "reason": "Abu Dhabi applied-AI subsidiary of G42; posts AI engineering hiring",
+    "confidence": "verified"
+  },
+  {
+    "name": "Patronus AI",
+    "type": "company-ai-startup",
+    "country": "US",
+    "linkedinIdentifier": "patronus-ai-inc",
+    "isCompany": true,
+    "linkedinUrl": "https://www.linkedin.com/company/patronus-ai-inc",
+    "reason": "AI evals/safety startup; posts engineering hiring for remote-friendly AI eng",
+    "confidence": "verified"
+  },
+  {
+    "name": "Distyl AI",
+    "type": "company-ai-startup",
+    "country": "US",
+    "linkedinIdentifier": "distylai",
+    "isCompany": true,
+    "linkedinUrl": "https://www.linkedin.com/company/distylai",
+    "reason": "Enterprise AI deployment co (Series B); hires AI engineers regularly",
+    "confidence": "verified"
+  },
+  {
+    "name": "Vellum AI",
+    "type": "company-ai-startup",
+    "country": "US",
+    "linkedinIdentifier": "vellumai",
+    "isCompany": true,
+    "linkedinUrl": "https://www.linkedin.com/company/vellumai",
+    "reason": "AI prompt-eng/eval platform (YC); posts engineering hiring",
+    "confidence": "verified"
+  },
+  {
+    "name": "Cresta",
+    "type": "company-ai-startup",
+    "country": "US",
+    "linkedinIdentifier": "cresta-inc",
+    "isCompany": true,
+    "linkedinUrl": "https://www.linkedin.com/company/cresta-inc",
+    "reason": "Conversational AI for contact centers; active hiring posts",
+    "confidence": "verified"
+  },
+  {
+    "name": "Datatonic",
+    "type": "agency",
+    "country": "GB",
+    "linkedinIdentifier": "datatonic",
+    "isCompany": true,
+    "linkedinUrl": "https://www.linkedin.com/company/datatonic",
+    "reason": "UK Cloud + AI consultancy (founder-led, mid-size); posts contract/remote AI eng hiring",
+    "confidence": "verified"
+  },
+  {
+    "name": "DAIN Studios",
+    "type": "agency",
+    "country": "DE",
+    "linkedinIdentifier": "dain-studios",
+    "isCompany": true,
+    "linkedinUrl": "https://www.linkedin.com/company/dain-studios",
+    "reason": "Helsinki/Berlin/Munich/Vienna boutique AI consultancy; posts AI eng hiring inc remote EU",
+    "confidence": "likely"
+  },
+  {
+    "name": "Tryolabs",
+    "type": "agency",
+    "country": "US",
+    "linkedinIdentifier": "tryolabs",
+    "isCompany": true,
+    "linkedinUrl": "https://www.linkedin.com/company/tryolabs",
+    "reason": "Founder-led AI/ML consultancy (Montevideo + US clients); posts ML eng contract roles. Note: HQ Uruguay but NOT IT-staffing-shop pattern",
+    "confidence": "verified"
+  },
+  {
+    "name": "Arthur Mensch",
+    "type": "founder-ceo",
+    "country": "FR",
+    "linkedinIdentifier": "arthur-mensch-2534b362",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/arthur-mensch-2534b362",
+    "reason": "Co-founder/CEO Mistral AI; reshares Mistral hiring posts to a large AI-eng audience",
+    "confidence": "verified"
+  },
+  {
+    "name": "Clem Delangue",
+    "type": "founder-ceo",
+    "country": "FR",
+    "linkedinIdentifier": "clementdelangue",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/clementdelangue",
+    "reason": "Co-founder/CEO Hugging Face; very active LinkedIn poster including hiring",
+    "confidence": "verified"
+  },
+  {
+    "name": "Aravind Srinivas",
+    "type": "founder-ceo",
+    "country": "US",
+    "linkedinIdentifier": "aravind-srinivas-16051987",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/aravind-srinivas-16051987",
+    "reason": "Co-founder/CEO Perplexity AI; posts hiring for AI eng roles regularly",
+    "confidence": "verified"
+  },
+  {
+    "name": "Daniel Vassilev",
+    "type": "founder-ceo",
+    "country": "AU",
+    "linkedinIdentifier": "daniel-vassilev",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/daniel-vassilev",
+    "reason": "Co-CEO Relevance AI; posts AU+US hiring incl. remote AI engineer roles",
+    "confidence": "verified"
+  },
+  {
+    "name": "Jesse Zhang",
+    "type": "founder-ceo",
+    "country": "US",
+    "linkedinIdentifier": "thejessezhang",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/thejessezhang",
+    "reason": "Co-founder/CEO Decagon; posts engineering hiring",
+    "confidence": "verified"
+  },
+  {
+    "name": "Joel Hellermark",
+    "type": "founder-ceo",
+    "country": "SE",
+    "linkedinIdentifier": "joel-hellermark",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/joel-hellermark",
+    "reason": "Founder/CEO Sana; active poster, frequently shares hiring",
+    "confidence": "verified"
+  },
+  {
+    "name": "Anton Osika",
+    "type": "founder-ceo",
+    "country": "SE",
+    "linkedinIdentifier": "antonosika",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/antonosika",
+    "reason": "Co-founder/CEO Lovable; very active LinkedIn poster, shares engineering hiring",
+    "confidence": "verified"
+  },
+  {
+    "name": "Mati Staniszewski",
+    "type": "founder-ceo",
+    "country": "GB",
+    "linkedinIdentifier": "matiii",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/matiii",
+    "reason": "Co-founder/CEO ElevenLabs; reshares hiring posts (UK/US/Poland/remote)",
+    "confidence": "verified"
+  },
+  {
+    "name": "Victor Riparbelli",
+    "type": "founder-ceo",
+    "country": "GB",
+    "linkedinIdentifier": "victorriparbelli",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/victorriparbelli",
+    "reason": "Co-founder/CEO Synthesia; posts hiring across UK + US + remote",
+    "confidence": "verified"
+  },
+  {
+    "name": "Bret Taylor",
+    "type": "founder-ceo",
+    "country": "US",
+    "linkedinIdentifier": "brettaylor",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/brettaylor",
+    "reason": "Co-founder Sierra (and OpenAI chair); posts AI hiring + thought leadership",
+    "confidence": "verified"
+  },
+  {
+    "name": "Clay Bavor",
+    "type": "founder-ceo",
+    "country": "US",
+    "linkedinIdentifier": "claybavor",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/claybavor",
+    "reason": "Co-founder Sierra; posts engineering hiring updates",
+    "confidence": "verified"
+  },
+  {
+    "name": "Flo Crivello",
+    "type": "founder-ceo",
+    "country": "US",
+    "linkedinIdentifier": "flocrivello",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/flocrivello",
+    "reason": "CEO/founder Lindy AI; very active LinkedIn poster, reshares hiring",
+    "confidence": "likely"
+  },
+  {
+    "name": "May Habib",
+    "type": "founder-ceo",
+    "country": "US",
+    "linkedinIdentifier": "may-habib",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/may-habib",
+    "reason": "Co-founder/CEO Writer; active hiring posts and AI thought leadership",
+    "confidence": "verified"
+  },
+  {
+    "name": "João Moura",
+    "type": "founder-ceo",
+    "country": "BR",
+    "linkedinIdentifier": "joaomdmoura",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/joaomdmoura",
+    "reason": "CEO/founder CrewAI; top 1% LinkedIn creator in Tech, reshares contract/remote AI eng hiring",
+    "confidence": "verified"
+  },
+  {
+    "name": "Eric Steinberger",
+    "type": "founder-ceo",
+    "country": "US",
+    "linkedinIdentifier": "ericsteinb",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/ericsteinb",
+    "reason": "Co-founder/CEO Magic.dev; posts AI eng hiring incl. remote",
+    "confidence": "verified"
+  },
+  {
+    "name": "Guy Podjarny",
+    "type": "founder-ceo",
+    "country": "GB",
+    "linkedinIdentifier": "guypo",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/guypo",
+    "reason": "Founder/CEO Tessl (and Snyk founder); posts AI-native dev hiring",
+    "confidence": "likely"
+  },
+  {
+    "name": "Anand Kannappan",
+    "type": "founder-ceo",
+    "country": "US",
+    "linkedinIdentifier": "anandnkannappan",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/anandnkannappan",
+    "reason": "Co-founder/CEO Patronus AI; posts engineering hiring inc remote",
+    "confidence": "verified"
+  },
+  {
+    "name": "Aidan Gomez",
+    "type": "founder-ceo",
+    "country": "CA",
+    "linkedinIdentifier": "aidangomez",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/aidangomez",
+    "reason": "Co-founder/CEO Cohere; reshares Cohere hiring posts to a global AI community",
+    "confidence": "likely"
+  },
+  {
+    "name": "Akash Sharma",
+    "type": "founder-ceo",
+    "country": "US",
+    "linkedinIdentifier": "akashsharma8",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/akashsharma8",
+    "reason": "Co-founder/CEO Vellum (YC); posts engineering hiring",
+    "confidence": "unverified"
+  },
+  {
+    "name": "Nikola Mrkšić",
+    "type": "founder-ceo",
+    "country": "GB",
+    "linkedinIdentifier": "nikola-mrksic",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/nikola-mrksic",
+    "reason": "CEO/co-founder PolyAI; reshares hiring across UK/US",
+    "confidence": "verified"
+  },
+  {
+    "name": "JJ Fiasson",
+    "type": "founder-ceo",
+    "country": "AU",
+    "linkedinIdentifier": "jj-fiasson",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/jj-fiasson",
+    "reason": "CEO/founder Leonardo.AI; posts engineering hiring across AU and remote",
+    "confidence": "likely"
+  },
+  {
+    "name": "Rishabh Sagar",
+    "type": "founder-ceo",
+    "country": "GB",
+    "linkedinIdentifier": "rishabhsagar",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/rishabhsagar",
+    "reason": "Co-founder Tomoro; posts AI eng hiring contract/remote roles",
+    "confidence": "unverified"
+  },
+  {
+    "name": "Ash Garner",
+    "type": "founder-ceo",
+    "country": "GB",
+    "linkedinIdentifier": "ash-garner",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/ash-garner",
+    "reason": "Co-founder Tomoro; reshares contract/remote AI eng roles",
+    "confidence": "likely"
+  },
+  {
+    "name": "Jonas Andrulis",
+    "type": "founder-ceo",
+    "country": "DE",
+    "linkedinIdentifier": "jonas-andrulis",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/jonas-andrulis",
+    "reason": "Founder/CEO Aleph Alpha; posts hiring for ML eng across DE/EU",
+    "confidence": "unverified"
+  },
+  {
+    "name": "Denis Yarats",
+    "type": "cto-vpe",
+    "country": "US",
+    "linkedinIdentifier": "denisyarats",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/denisyarats",
+    "reason": "Co-founder/CTO Perplexity AI; posts engineering hiring",
+    "confidence": "verified"
+  },
+  {
+    "name": "Piotr Dabkowski",
+    "type": "cto-vpe",
+    "country": "GB",
+    "linkedinIdentifier": "piotr-dabkowski-50222bba",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/piotr-dabkowski-50222bba",
+    "reason": "Co-founder/CTO ElevenLabs; reshares engineering hiring posts (UK/PL/remote)",
+    "confidence": "verified"
+  },
+  {
+    "name": "Ashwin Sreenivas",
+    "type": "cto-vpe",
+    "country": "US",
+    "linkedinIdentifier": "sreenivasashwin",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/sreenivasashwin",
+    "reason": "Co-founder/CTO Decagon; posts engineering hiring",
+    "confidence": "verified"
+  },
+  {
+    "name": "Tim Shi",
+    "type": "cto-vpe",
+    "country": "US",
+    "linkedinIdentifier": "tim-shi",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/tim-shi",
+    "reason": "Co-founder/CTO Cresta; posts AI engineering hiring",
+    "confidence": "unverified"
+  },
+  {
+    "name": "Edo Liberty",
+    "type": "cto-vpe",
+    "country": "US",
+    "linkedinIdentifier": "edo-liberty-4380164",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/edo-liberty-4380164",
+    "reason": "Founder/Chief Scientist Pinecone (ex-CEO); reshares engineering hiring",
+    "confidence": "verified"
+  },
+  {
+    "name": "Vishwanath T R",
+    "type": "cto-vpe",
+    "country": "US",
+    "linkedinIdentifier": "vishal-tr",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/vishal-tr",
+    "reason": "Co-founder/CTO Glean; reshares Glean engineering hiring",
+    "confidence": "unverified"
+  },
+  {
+    "name": "Arvind Jain",
+    "type": "founder-ceo",
+    "country": "US",
+    "linkedinIdentifier": "arvindjain",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/arvindjain",
+    "reason": "Co-founder/CEO Glean; posts hiring across product + eng",
+    "confidence": "likely"
+  },
+  {
+    "name": "Justin Uberti",
+    "type": "cto-vpe",
+    "country": "US",
+    "linkedinIdentifier": "juberti",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/juberti",
+    "reason": "Co-founder/CTO Fixie/Ultravox; posts AI eng hiring",
+    "confidence": "likely"
+  },
+  {
+    "name": "Sebastian De Ro",
+    "type": "cto-vpe",
+    "country": "US",
+    "linkedinIdentifier": "sebastian-de-ro",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/sebastian-de-ro",
+    "reason": "Co-founder/CTO Magic.dev; posts engineering hiring",
+    "confidence": "unverified"
+  },
+  {
+    "name": "Aman Sanger",
+    "type": "cto-vpe",
+    "country": "US",
+    "linkedinIdentifier": "amansanger",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/amansanger",
+    "reason": "Co-founder Anysphere/Cursor; reshares engineering hiring",
+    "confidence": "likely"
+  },
+  {
+    "name": "Sualeh Asif",
+    "type": "cto-vpe",
+    "country": "US",
+    "linkedinIdentifier": "sualehasif",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/sualehasif",
+    "reason": "Co-founder/CPO Anysphere/Cursor; reshares engineering hiring",
+    "confidence": "unverified"
+  },
+  {
+    "name": "Rebecca Qian",
+    "type": "cto-vpe",
+    "country": "US",
+    "linkedinIdentifier": "rebeccaqian",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/rebeccaqian",
+    "reason": "Co-founder/CTO Patronus AI; posts engineering hiring",
+    "confidence": "verified"
+  },
+  {
+    "name": "Sidd Seethepalli",
+    "type": "cto-vpe",
+    "country": "US",
+    "linkedinIdentifier": "siddharth-seethepalli",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/siddharth-seethepalli",
+    "reason": "Co-founder/CTO Vellum; posts engineering hiring",
+    "confidence": "unverified"
+  },
+  {
+    "name": "Noa Flaherty",
+    "type": "cto-vpe",
+    "country": "US",
+    "linkedinIdentifier": "noa-flaherty",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/noa-flaherty",
+    "reason": "Co-founder/CTO Vellum; reshares engineering hiring",
+    "confidence": "unverified"
+  },
+  {
+    "name": "Jacky Koh",
+    "type": "cto-vpe",
+    "country": "AU",
+    "linkedinIdentifier": "jacky-koh",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/jacky-koh",
+    "reason": "Co-CEO/co-founder Relevance AI (technical lead); reshares hiring AU/US",
+    "confidence": "unverified"
+  },
+  {
+    "name": "Peter Hill",
+    "type": "cto-vpe",
+    "country": "GB",
+    "linkedinIdentifier": "peter-hill",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/peter-hill",
+    "reason": "CTO Synthesia (joined Jan 2025); reshares engineering hiring",
+    "confidence": "unverified"
+  },
+  {
+    "name": "Gaurav Agarwal",
+    "type": "cto-vpe",
+    "country": "DE",
+    "linkedinIdentifier": "agrwlgaurav",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/agrwlgaurav",
+    "reason": "CTO GetYourGuide; posts engineering hiring incl. AI roles, EU/remote",
+    "confidence": "verified"
+  },
+  {
+    "name": "Shawn Wen",
+    "type": "cto-vpe",
+    "country": "GB",
+    "linkedinIdentifier": "shawn-wen-51b7b958",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/shawn-wen-51b7b958",
+    "reason": "Co-founder PolyAI (technical); reshares engineering hiring",
+    "confidence": "verified"
+  },
+  {
+    "name": "Magnus Grimeland",
+    "type": "accelerator-partner",
+    "country": "SG",
+    "linkedinIdentifier": "magnusgrimeland",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/magnusgrimeland",
+    "reason": "Founder/CEO Antler (global accelerator); reshares portfolio hiring frequently",
+    "confidence": "verified"
+  },
+  {
+    "name": "Christoph Klink",
+    "type": "accelerator-partner",
+    "country": "DE",
+    "linkedinIdentifier": "christoph-klink-a0ab44b5",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/christoph-klink-a0ab44b5",
+    "reason": "Antler Berlin partner; reshares DE/EU portfolio hiring",
+    "confidence": "verified"
+  },
+  {
+    "name": "Tyler Norwood",
+    "type": "accelerator-partner",
+    "country": "US",
+    "linkedinIdentifier": "norwoodrt",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/norwoodrt",
+    "reason": "Antler US Managing Partner; reshares US portfolio hiring",
+    "confidence": "verified"
+  },
+  {
+    "name": "Jeff Becker",
+    "type": "accelerator-partner",
+    "country": "US",
+    "linkedinIdentifier": "jeffreylbecker",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/jeffreylbecker",
+    "reason": "Antler US partner; reshares portfolio hiring",
+    "confidence": "verified"
+  },
+  {
+    "name": "Adam French",
+    "type": "accelerator-partner",
+    "country": "GB",
+    "linkedinIdentifier": "adamfrench",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/adamfrench",
+    "reason": "Antler London partner (ex-Scalable Capital founder); reshares portfolio hiring",
+    "confidence": "likely"
+  },
+  {
+    "name": "Alan Poensgen",
+    "type": "accelerator-partner",
+    "country": "DE",
+    "linkedinIdentifier": "alan-poensgen",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/alan-poensgen",
+    "reason": "Antler Germany partner; reshares DE portfolio hiring",
+    "confidence": "unverified"
+  },
+  {
+    "name": "Matt Clifford",
+    "type": "accelerator-partner",
+    "country": "GB",
+    "linkedinIdentifier": "mattcliffordef",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/mattcliffordef",
+    "reason": "Co-founder/Chair Entrepreneur First; very active LinkedIn poster, reshares portfolio hiring",
+    "confidence": "verified"
+  },
+  {
+    "name": "Alice Bentinck",
+    "type": "accelerator-partner",
+    "country": "GB",
+    "linkedinIdentifier": "alicebentinck",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/alicebentinck",
+    "reason": "Co-founder/CEO Entrepreneur First; reshares portfolio hiring",
+    "confidence": "verified"
+  },
+  {
+    "name": "Esha Tiwary",
+    "type": "accelerator-partner",
+    "country": "IN",
+    "linkedinIdentifier": "eshatiwary",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/eshatiwary",
+    "reason": "Partner/India Head Entrepreneur First (Bangalore); reshares EF portfolio hiring",
+    "confidence": "verified"
+  },
+  {
+    "name": "Ruchi Sanghvi",
+    "type": "accelerator-partner",
+    "country": "US",
+    "linkedinIdentifier": "rsanghvi",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/rsanghvi",
+    "reason": "Founder/GP South Park Commons; reshares SPC portfolio hiring",
+    "confidence": "verified"
+  },
+  {
+    "name": "Aditya Agarwal",
+    "type": "accelerator-partner",
+    "country": "US",
+    "linkedinIdentifier": "adityaagarwal3",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/adityaagarwal3",
+    "reason": "GP South Park Commons; reshares SPC portfolio hiring",
+    "confidence": "verified"
+  },
+  {
+    "name": "Garry Tan",
+    "type": "accelerator-partner",
+    "country": "US",
+    "linkedinIdentifier": "garrytan",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/garrytan",
+    "reason": "President/CEO Y Combinator; very active LinkedIn poster, reshares YC portfolio hiring",
+    "confidence": "verified"
+  },
+  {
+    "name": "Diana Hu",
+    "type": "accelerator-partner",
+    "country": "US",
+    "linkedinIdentifier": "dianahu",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/dianahu",
+    "reason": "YC Group Partner (AI-focused); reshares YC portfolio hiring",
+    "confidence": "likely"
+  },
+  {
+    "name": "Joe Heitzeberg",
+    "type": "kol",
+    "country": "US",
+    "linkedinIdentifier": "joeheitzeberg",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/joeheitzeberg",
+    "reason": "Founder AI Tinkerers (60+ city AI community); reshares hiring posts to AI eng community",
+    "confidence": "verified"
+  },
+  {
+    "name": "Demetrios Brinkmann",
+    "type": "kol",
+    "country": "US",
+    "linkedinIdentifier": "dpbrinkm",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/dpbrinkm",
+    "reason": "Founder/CEO MLOps Community; very active LinkedIn poster, reshares hiring posts",
+    "confidence": "verified"
+  },
+  {
+    "name": "Ben Tossell",
+    "type": "kol",
+    "country": "GB",
+    "linkedinIdentifier": "ben-tossell-70453537",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/ben-tossell-70453537",
+    "reason": "Founder Ben's Bites (100k+ AI newsletter); active LinkedIn poster, reshares AI hiring",
+    "confidence": "verified"
+  },
+  {
+    "name": "Aleksa Gordić",
+    "type": "kol",
+    "country": "RS",
+    "linkedinIdentifier": "aleksagordic",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/aleksagordic",
+    "reason": "Ex-Google DeepMind, founder Runa AI, AI Epiphany YouTube; active poster, reshares AI eng opportunities",
+    "confidence": "verified"
+  },
+  {
+    "name": "Shawn Wang (swyx)",
+    "type": "kol",
+    "country": "US",
+    "linkedinIdentifier": "shawnswyxwang",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/shawnswyxwang",
+    "reason": "Co-founder/CEO AI.Engineer + Latent Space; LinkedIn presence is reduced (he's stepped back) but profile still receives reshares of AI eng hiring",
+    "confidence": "likely"
+  },
+  {
+    "name": "Martin Casado",
+    "type": "vc-partner",
+    "country": "US",
+    "linkedinIdentifier": "martincasado",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/martincasado",
+    "reason": "a16z GP (infra/AI lead); reshares portfolio hiring incl. AI eng roles",
+    "confidence": "verified"
+  },
+  {
+    "name": "Sarah Wang",
+    "type": "vc-partner",
+    "country": "US",
+    "linkedinIdentifier": "sarah-wang-59b96a7",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/sarah-wang-59b96a7",
+    "reason": "a16z partner (AI focus); reshares portfolio hiring",
+    "confidence": "verified"
+  },
+  {
+    "name": "Sonya Huang",
+    "type": "vc-partner",
+    "country": "US",
+    "linkedinIdentifier": "sonyaruihuang",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/sonyaruihuang",
+    "reason": "Sequoia GP (AI lead); active LinkedIn poster, reshares portfolio hiring",
+    "confidence": "verified"
+  },
+  {
+    "name": "Pat Grady",
+    "type": "vc-partner",
+    "country": "US",
+    "linkedinIdentifier": "gradypb",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/gradypb",
+    "reason": "Sequoia partner (growth/AI); reshares portfolio hiring",
+    "confidence": "verified"
+  },
+  {
+    "name": "Konstantine Buhler",
+    "type": "vc-partner",
+    "country": "US",
+    "linkedinIdentifier": "konstantinebuhler",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/konstantinebuhler",
+    "reason": "Sequoia partner (AI engineer + investor); very active poster, reshares AI hiring",
+    "confidence": "verified"
+  },
+  {
+    "name": "Bryan Offutt",
+    "type": "vc-partner",
+    "country": "US",
+    "linkedinIdentifier": "bryanoffutt",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/bryanoffutt",
+    "reason": "Index Ventures partner (AI/infra) → now Hanabi; still reshares ex-portfolio AI hiring",
+    "confidence": "likely"
+  },
+  {
+    "name": "Tom Wehmeier",
+    "type": "vc-partner",
+    "country": "GB",
+    "linkedinIdentifier": "thomaswehmeier",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/thomaswehmeier",
+    "reason": "Atomico partner (research); reshares EU portfolio hiring",
+    "confidence": "verified"
+  },
+  {
+    "name": "Jan Hammer",
+    "type": "vc-partner",
+    "country": "GB",
+    "linkedinIdentifier": "hammerjan",
+    "isCompany": false,
+    "linkedinUrl": "https://www.linkedin.com/in/hammerjan",
+    "reason": "Index Ventures GP (London); reshares EU portfolio hiring",
+    "confidence": "verified"
+  }
+]

@@ -1,0 +1,152 @@
+[
+  {
+    "_comment": "T1 — currency-anchored. USD/EUR/GBP rate ranges almost never appear in Indian-recruiter spam. Highest precision.",
+    "group": "T1-currency", "tier": 1, "maxResults": 15,
+    "query": "\"hiring\" \"ai engineer\" \"USD\"",
+    "note": "AI engineer hire with USD rate"
+  },
+  {
+    "group": "T1-currency", "tier": 1, "maxResults": 15,
+    "query": "\"contract\" \"ai engineer\" \"USD\"",
+    "note": "Contract AI engineer with USD rate"
+  },
+  {
+    "group": "T1-currency", "tier": 1, "maxResults": 15,
+    "query": "\"looking for\" \"ai consultant\" \"USD\"",
+    "note": "USD-paid AI consultant search"
+  },
+  {
+    "group": "T1-currency", "tier": 1, "maxResults": 15,
+    "query": "\"contract\" \"ai developer\" \"GBP\"",
+    "note": "UK contract AI dev"
+  },
+  {
+    "group": "T1-currency", "tier": 1, "maxResults": 15,
+    "query": "\"hiring\" \"ai engineer\" \"EUR\"",
+    "note": "EU contract AI engineer"
+  },
+
+  {
+    "_comment": "T1 — timezone-anchored. EST / PST / GMT in a hire post = US/EU founder.",
+    "group": "T1-timezone", "tier": 1, "maxResults": 15,
+    "query": "\"contract\" \"ai engineer\" \"EST\"",
+    "note": "EST timezone AI engineer contract"
+  },
+  {
+    "group": "T1-timezone", "tier": 1, "maxResults": 15,
+    "query": "\"hiring\" \"ai engineer\" \"PST\"",
+    "note": "PST timezone AI engineer hire"
+  },
+  {
+    "group": "T1-timezone", "tier": 1, "maxResults": 15,
+    "query": "\"looking for\" \"ai developer\" \"EST hours\"",
+    "note": "EST overlap AI dev search"
+  },
+
+  {
+    "_comment": "T1 — geo phrase anchored. US-based / UK-based / EU-based + intent + tech.",
+    "group": "T1-geo", "tier": 1, "maxResults": 15,
+    "query": "\"hiring\" \"ai engineer\" \"US-based\"",
+    "note": "US-based AI engineer hire"
+  },
+  {
+    "group": "T1-geo", "tier": 1, "maxResults": 15,
+    "query": "\"contract\" \"ai engineer\" \"UK-based\"",
+    "note": "UK-based AI engineer contract"
+  },
+  {
+    "group": "T1-geo", "tier": 1, "maxResults": 15,
+    "query": "\"hiring\" \"ai consultant\" \"based in the US\"",
+    "note": "AI consultant US-located"
+  },
+  {
+    "group": "T1-geo", "tier": 1, "maxResults": 15,
+    "query": "\"looking for\" \"ai engineer\" \"EU-based\"",
+    "note": "EU-based AI engineer"
+  },
+
+  {
+    "_comment": "T1 — startup ecosystem anchored. YC / venture-backed / Series-X are heavy US/EU signals.",
+    "group": "T1-startup", "tier": 1, "maxResults": 15,
+    "query": "\"hiring\" \"ai engineer\" \"YC\"",
+    "note": "YC startup hiring"
+  },
+  {
+    "group": "T1-startup", "tier": 1, "maxResults": 15,
+    "query": "\"hiring\" \"ai engineer\" \"venture-backed\"",
+    "note": "Venture-backed startup AI hire"
+  },
+  {
+    "group": "T1-startup", "tier": 1, "maxResults": 15,
+    "query": "\"contract\" \"ai engineer\" \"Series A\"",
+    "note": "Series A AI engineer contract"
+  },
+
+  {
+    "_comment": "T1 — strong-remote anchored. The new strict filter requires fully-remote / 100% remote phrasing — search for it directly.",
+    "group": "T1-remote", "tier": 1, "maxResults": 15,
+    "query": "\"contract\" \"ai engineer\" \"fully remote\" \"USD\"",
+    "note": "Fully-remote USD AI engineer"
+  },
+  {
+    "group": "T1-remote", "tier": 1, "maxResults": 15,
+    "query": "\"hiring\" \"ai developer\" \"remote-first\"",
+    "note": "Remote-first AI dev hire"
+  },
+
+  {
+    "_comment": "T2 — major US/EU cities. Fewer results per query but still targeted.",
+    "group": "T2-cities", "tier": 2, "maxResults": 8,
+    "query": "\"hiring\" \"ai engineer\" \"San Francisco\"",
+    "note": "SF AI engineer"
+  },
+  {
+    "group": "T2-cities", "tier": 2, "maxResults": 8,
+    "query": "\"hiring\" \"ai engineer\" \"New York\"",
+    "note": "NYC AI engineer"
+  },
+  {
+    "group": "T2-cities", "tier": 2, "maxResults": 8,
+    "query": "\"contract\" \"ai engineer\" \"London\"",
+    "note": "London AI engineer contract"
+  },
+  {
+    "group": "T2-cities", "tier": 2, "maxResults": 8,
+    "query": "\"hiring\" \"ai engineer\" \"Berlin\"",
+    "note": "Berlin AI engineer"
+  },
+  {
+    "group": "T2-cities", "tier": 2, "maxResults": 8,
+    "query": "\"hiring\" \"ai engineer\" \"Austin\"",
+    "note": "Austin AI engineer"
+  },
+
+  {
+    "_comment": "T2 — niche tech + currency. RAG / agentic / LLM with USD anchor.",
+    "group": "T2-niche", "tier": 2, "maxResults": 8,
+    "query": "\"hiring\" \"rag\" engineer \"USD\"",
+    "note": "RAG engineer USD"
+  },
+  {
+    "group": "T2-niche", "tier": 2, "maxResults": 8,
+    "query": "\"contract\" \"agentic\" engineer \"US-based\"",
+    "note": "Agentic engineer US-based"
+  },
+  {
+    "group": "T2-niche", "tier": 2, "maxResults": 8,
+    "query": "\"hiring\" \"llm engineer\" \"USD\"",
+    "note": "LLM engineer USD"
+  },
+
+  {
+    "_comment": "T3 — exploratory fallback. Generic queries kept small in case T1+T2 starve.",
+    "group": "T3-fallback", "tier": 3, "maxResults": 5,
+    "query": "\"contract\" \"ai engineer\" remote",
+    "note": "Generic — was prior CHAMPION"
+  },
+  {
+    "group": "T3-fallback", "tier": 3, "maxResults": 5,
+    "query": "\"hiring\" \"ai engineer\" remote freelance",
+    "note": "Generic hiring AI engineer"
+  }
+]

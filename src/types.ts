@@ -19,6 +19,9 @@ export interface ScrapedPost {
   engagementShares?: number | null;
   scrapedAt: string;
   queryUsed: string;
+  /** One-off 3-way sourcing test tag (scripts/test-3way.ts). Always
+   *  undefined for production scrapes. */
+  testRunId?: string | null;
 }
 
 // ── AI Scoring ──

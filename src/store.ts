@@ -136,6 +136,7 @@ export class Store {
         scrapedAt: post.scrapedAt ? new Date(post.scrapedAt) : new Date(),
         queryUsed: post.queryUsed,
         source: "linkedin_jobs",
+        testRunId: post.testRunId ?? null,
       })
       .onConflictDoNothing({ target: schema.posts.url })
       .returning({ id: schema.posts.id });
@@ -181,6 +182,44 @@ export class Store {
       engagementCount: r.engagementCount ?? 0,
       scrapedAt: r.scrapedAt.toISOString(),
       queryUsed: r.queryUsed ?? "",
+    }));
+  }
+
+  /**
+   * Same as `getUnscoredPosts()` but scoped to a specific test_run_id —
+   * used by scripts/test-3way.ts so each strategy's qualified-rate is
+   * computed only over its own rows.
+   */
+  async getUnscoredPostsForTest(testRunId: string): Promise<ScrapedPost[]> {
+    const rows = await db
+      .select({
+        id: schema.posts.id,
+        url: schema.posts.url,
+        authorName: schema.posts.authorName,
+        authorHeadline: schema.posts.authorHeadline,
+        authorUrl: schema.posts.authorUrl,
+        content: schema.posts.content,
+        engagementCount: schema.posts.engagementCount,
+        scrapedAt: schema.posts.scrapedAt,
+        queryUsed: schema.posts.queryUsed,
+      })
+      .from(schema.posts)
+      .leftJoin(schema.scores, eq(schema.scores.postId, schema.posts.id))
+      .where(
+        sql`${schema.scores.postId} IS NULL AND ${schema.posts.testRunId} = ${testRunId}`,
+      );
+
+    return rows.map((r) => ({
+      id: r.id,
+      url: r.url,
+      authorName: r.authorName ?? "",
+      authorHeadline: r.authorHeadline ?? "",
+      authorUrl: r.authorUrl ?? "",
+      content: r.content ?? "",
+      engagementCount: r.engagementCount ?? 0,
+      scrapedAt: r.scrapedAt.toISOString(),
+      queryUsed: r.queryUsed ?? "",
+      testRunId,
     }));
   }
 
