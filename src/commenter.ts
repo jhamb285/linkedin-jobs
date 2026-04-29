@@ -46,23 +46,15 @@ function parseSinglePersonaContent(text: string): SinglePersonaContent | null {
  * more word chars, but NOT preceded by a word char or `.` (so
  * "user@example.com" stays intact — the @ there has a word char before it).
  */
-const AT_MENTION_RE = /(?<![\w.])@\w+(?:[._-]\w+)*/g;
-
-function stripAtMentions(s: string): string {
-  return s.replace(AT_MENTION_RE, "").replace(/\s{2,}/g, " ").trim();
-}
+// 2026-04-29: stripAtMentions removed at user request — @-comments are
+// now ENCOURAGED (the prompts instruct LLM to start outreach with
+// `@{author_first_name}` so the post author gets a notification).
+// Keeping the `sanitize()` helper as a pass-through stub so the call
+// sites in runGenerator() don't change shape — drop other content
+// transforms in here later if we need them.
 
 function sanitize(content: SinglePersonaContent): SinglePersonaContent {
-  return {
-    summary: stripAtMentions(content.summary),
-    comment: stripAtMentions(content.comment),
-    connectionNote: stripAtMentions(content.connectionNote),
-    dm: stripAtMentions(content.dm),
-    emailSubject: content.emailSubject
-      ? stripAtMentions(content.emailSubject)
-      : null,
-    email: content.email ? stripAtMentions(content.email) : null,
-  };
+  return content;
 }
 
 /**
