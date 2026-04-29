@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { AppConfig, PostScore, ScoringResult, ScrapedPost } from "./types";
 import type { Store } from "./store";
-import { loadPrompt } from "./config";
+import { loadPromptDbFirst } from "./config";
 import { analyzeRemoteDays } from "./hybrid-filter";
 import { recordEvent } from "./events";
 
@@ -61,7 +61,7 @@ export async function runScorer(
 
   const genAI = new GoogleGenerativeAI(config.geminiApiKey);
   const model = genAI.getGenerativeModel({ model: config.geminiModel });
-  const template = loadPrompt("scoring-prompt");
+  const template = await loadPromptDbFirst("scoring-prompt");
 
   let scored = 0;
   let highScore = 0;

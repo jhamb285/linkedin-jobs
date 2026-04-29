@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { AppConfig } from "./types";
 import type { Store } from "./store";
-import { loadPrompt } from "./config";
+import { loadPromptDbFirst } from "./config";
 import { recordEvent } from "./events";
 import { fetchExpertiseMatches, type Persona } from "./expertise";
 
@@ -90,9 +90,12 @@ export async function runGenerator(
 
   const genAI = new GoogleGenerativeAI(config.geminiApiKey);
   const model = genAI.getGenerativeModel({ model: config.geminiModel });
+  // DB-first: pulls the latest prompt from content_prompts (edited via the
+  // platform UI), falls back to the on-disk .md file if the DB row is
+  // missing or unreachable.
   const promptByPersona: Record<Persona, string> = {
-    pk: loadPrompt("lead-prompt-pk"),
-    aj: loadPrompt("lead-prompt-aj"),
+    pk: await loadPromptDbFirst("lead-prompt-pk"),
+    aj: await loadPromptDbFirst("lead-prompt-aj"),
   };
 
   let generated = 0;

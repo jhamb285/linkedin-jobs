@@ -50,6 +50,53 @@ export function loadPrompt(name: string): string {
   return readFileSync(join(ROOT, "config", `${name}.md`), "utf-8");
 }
 
+/**
+ * Maps the legacy file-based prompt name to its DB-namespaced equivalent.
+ * Convention: <pipeline>.<persona-or-channel>. Phase 7 multi-pipeline
+ * foresight — when pipeline #2 lands, those prompts get
+ * "linkedin_kol.lead.aj" etc. without a code change here.
+ */
+const DB_PROMPT_KEY: Record<string, string> = {
+  "lead-prompt-aj": "linkedin_jobs.lead.aj",
+  "lead-prompt-pk": "linkedin_jobs.lead.pk",
+  "lead-prompt": "linkedin_jobs.lead",
+  "comment-prompt": "linkedin_jobs.comment",
+  "dm-prompt": "linkedin_jobs.dm",
+  "scoring-prompt": "linkedin_jobs.scoring",
+};
+
+/**
+ * DB-first prompt loader: looks up content_prompts.content by the
+ * namespaced key first; falls back to the on-disk .md file when the row
+ * is missing or DB is unreachable. Async — callers must await.
+ *
+ * The platform's Settings → Prompts tab edits the same DB row, so once
+ * staff customizes a prompt in the UI the next cron run picks it up
+ * without requiring a redeploy.
+ */
+export async function loadPromptDbFirst(name: string): Promise<string> {
+  const key = DB_PROMPT_KEY[name];
+  if (key) {
+    try {
+      const { db, schema } = await import("./db");
+      const { eq } = await import("drizzle-orm");
+      const rows = await db
+        .select({ content: schema.contentPrompts.content })
+        .from(schema.contentPrompts)
+        .where(eq(schema.contentPrompts.promptName, key))
+        .limit(1);
+      if (rows.length && rows[0].content) {
+        return rows[0].content;
+      }
+    } catch (err) {
+      console.warn(
+        `[loadPromptDbFirst] DB lookup for ${key} failed; falling back to file. ${(err as Error).message}`,
+      );
+    }
+  }
+  return loadPrompt(name);
+}
+
 export function getWeekNumber(): number {
   const dbPath = join(ROOT, "data", "leads.db");
   try {
