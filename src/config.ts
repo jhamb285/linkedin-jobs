@@ -34,7 +34,8 @@ export function loadConfig(): AppConfig {
     maxConnectionsPerDay: parseInt(env("MAX_CONNECTIONS_PER_DAY", "15"), 10),
     maxDmsPerDay: parseInt(env("MAX_DMS_PER_DAY", "50"), 10),
     dailyScrapeCap: parseInt(env("DAILY_SCRAPE_CAP", "250"), 10),
-    apifyCostPerLead: parseFloat(env("APIFY_COST_PER_LEAD", "0.005")),
+    // harvestapi/linkedin-post-search bills $1.50/1000 posts → $0.0015/lead.
+    apifyCostPerLead: parseFloat(env("APIFY_COST_PER_LEAD", "0.0015")),
   };
 }
 

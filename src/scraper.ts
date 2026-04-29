@@ -73,7 +73,17 @@ const TARGET_REGIONS: string[] = [
 ];
 
 const EXCLUDED_REGIONS: string[] = [
-  // India
+  // India — states + union territories
+  // (added 2026-04-29 — "X State Jobs" company pages were slipping past
+  //  the city-only list)
+  "andhra pradesh", "arunachal pradesh", "assam", "bihar",
+  "chhattisgarh", "goa", "gujarat", "haryana", "himachal pradesh",
+  "jharkhand", "karnataka", "kerala", "madhya pradesh", "maharashtra",
+  "manipur", "meghalaya", "mizoram", "nagaland", "odisha", "punjab",
+  "rajasthan", "sikkim", "tamil nadu", "telangana", "tripura",
+  "uttar pradesh", "uttarakhand", "west bengal",
+  "jammu and kashmir", "ladakh", "puducherry",
+  // India — country + cities
   "india", "delhi", "mumbai", "bangalore", "bengaluru", "hyderabad",
   "chennai", "pune", "kolkata", "ahmedabad", "noida", "gurgaon",
   "gurugram", "jaipur", "lucknow", "chandigarh", "kochi", "indore",
@@ -111,16 +121,36 @@ const EXCLUDED_REGIONS: string[] = [
 
 // India/South Asia/Africa content signals (city names, currency, patterns)
 const INDIA_CONTENT_SIGNALS: string[] = [
-  // India
+  // India — location phrases
   "in india", "india-based", "india based", "indian market", "indian candidates",
+  // India — cities
   "bangalore", "bengaluru", "hyderabad", "pune", "chennai",
   "mumbai", "delhi", "noida", "gurgaon", "gurugram",
   "kolkata", "ahmedabad", "jaipur", "kochi", "indore",
   "nagpur", "coimbatore", "lucknow", "chandigarh",
-  "inr", "₹", "lakh", "lakhs", "lpa",
+  "bhubaneswar", "thiruvananthapuram", "vadodara", "surat", "visakhapatnam",
+  // India — money + benefits markers
+  "inr", "₹", "lakh", "lakhs", "lpa", "ctc",
+  "₹ lpa", "rs.", "rs ", "rupees", "fixed pay", "variable pay",
+  // India — timezone signals (a remote-from-india tell)
+  "ist hours", "ist time", "ist timezone", "ist working hours",
+  "indian standard time", "ist shift", "9am ist", "10am ist",
+  // India — language patterns common in IN postings
+  "do the needful", "kindly revert", "kindly do", "pfa ",
+  "as per discussion", "interested candidates may", "interested candidates can",
+  "share your cv at", "share your resume at", "drop your cv",
+  "drop your resume", "share updated cv", "share updated resume",
+  "looking for immediate joiners", "immediate joiner", "immediate joiners",
+  "notice period", "serving notice", "preferred notice",
+  // India — large outsourcing/services firms (recruiter spam tell)
+  "tcs ", "infosys ", "wipro ", "hcl ", "cognizant ",
+  "tech mahindra", "capgemini india", "accenture india",
+  "ltimindtree", "mphasis ", "mindtree ", "persistent systems",
+  "naukri", "naukri.com",
   // Pakistan
   "in pakistan", "pakistan-based", "pakistani candidates",
   "lahore", "karachi", "islamabad", "rawalpindi", "peshawar",
+  "pkr", "rs/-",
   // Bangladesh
   "in bangladesh", "bangladesh-based", "dhaka", "chittagong",
   // Africa
@@ -137,20 +167,225 @@ const INDIA_CONTENT_SIGNALS: string[] = [
 ];
 
 // Recruiter spam headline signals (staffing agencies from excluded regions)
+// Extended 2026-04-29 after analyze-test-c surfaced 8 polished-recruiter
+// false-positives in the 64-post pass group; the original list only
+// caught explicit "staffing" / "bench sales" wording.
 const SPAM_HEADLINE_SIGNALS: string[] = [
+  // Original
   "bench sales", "staffing", "manpower", "placement agency",
   "offshore development", "nearshore", "bodyshop",
+  // Recruiter titles — common at staffing/agency outfits
+  "senior recruiter", "sr recruiter", "sr. recruiter",
+  "technical recruiter", "tech recruiter", "executive recruiter",
+  "freelance recruiter", "contract recruiter", "us it recruiter",
+  // Talent / HR titles
+  "talent acquisition", "talent manager", "talent scout",
+  "hr executive", "hr recruiter", "hr recruitment",
+  // Recruitment-org titles
+  "recruitment consultant", "recruiting at", "headhunting", "headhunter",
+  "placement consultant", "resourcing specialist", "resource consultant",
+  // Connector / matchmaker positioning
+  "connecting talent", "connecting high",
+  "bridging talent", "bridging data and",
+  // Volume-recruiter "open roles" headlines
+  "100+ roles", "open to connect",
+  // US-staffing variants (often Indian-owned but US-fronted)
+  "us staffing", "it staffing",
+  // Additional recruiter / matchmaker titles surfaced 2026-04-29 round 2
+  "vp recruitment", "vice president recruitment",
+  "practice manager", "design & tech recruitment", "tech recruitment",
+  "talent matchmaker", "matchmaker", "zzp matchmaker",
+  "client manager", "new business development",
 ];
 
-function checkLocation(headline: string, postContent: string): { pass: boolean; reason: string } {
+// Spam BODY signals — patterns inside the post text that strongly
+// indicate Indian-staffing C2C / bench / visa-broker content. Added
+// 2026-04-29 — these slip past the headline check because the recruiter
+// uses polished US-style headlines but the BODY gives them away.
+const SPAM_BODY_SIGNALS: string[] = [
+  // C2C (corp-to-corp) staffing patterns
+  "available for c2c", "c2c bench", "open for c2c", "c2c requirement",
+  "c2c opportunity", "c2c position", "c2c role", "we have a c2c",
+  "consultant for c2c", "c2c only", "looking for c2c",
+  "c2h opportunity", "c2h role", "c2h contract",
+  // Body-side "share your CV" patterns (Indian-staffing convention)
+  "share your cv", "share updated cv", "share updated resume",
+  "share resume at", "send resume to", "drop your cv", "drop your resume",
+  // Visa-class patterns (US contracting via offshore staffing)
+  "visa - usc", "visa: usc", "visa type- usc", "usc/gc only",
+  "h1b transfer", "h-1b transfer", "h1 transfer", "available for h1",
+  // Bench-staffing patterns
+  "certified bench", "consulting bench", "staffing bench",
+  "partner certified bench", "expert bench",
+  // Job-seeker / affiliate spam patterns
+  "looking for remote work opportunities", "looking for remote opportunities",
+  "looking for work opportunities", "looking for my next big move",
+  "looking for my next role", "looking for my next opportunity",
+  "platforms that offer remote", "best platforms that offer",
+  "27 platforms", "20 platforms", "10 platforms that",
+  // 2026-04-29 round 3.1 — additional affiliate / aggregator spam patterns
+  "stop relying only on linkedin", "stop relying on linkedin",
+  "most people only search for jobs", "dozens of better pl",
+  "tuesday drop", "wednesday drop", "thursday drop", "friday drop",
+  "fresh jobs in engineering", "fresh jobs in design",
+  " fresh jobs ", "hirehut squad",
+  "looking for remote work", "looking for remote opp", "want to get paid in usd",
+  "looking for remote", "remote work in 2026",
+  // Explicit not-a-hiring-post tags & open-to-work signals
+  "#not_a_hiring_post", "not a hiring post", "#open_to_opportunities",
+  "i'm currently open to opportunities", "i am currently open to opportunities",
+  "open to new opportunities", "currently open to",
+  "#opentowork", "open to work", "opentowork",
+  // Job-aggregator / weekly-jobs spam
+  "top remote l&d jobs", "top remote jobs", "top remote",
+  "weekly jobs", "weekly job round-up", "weekly remote jobs",
+  "this week's remote", "your weekly job",
+  // Personal-achievement / certification posts (not hiring)
+  "i just passed", "i am thrilled to share that i just",
+  "i'm thrilled to share that i just",
+  "i just earned", "just earned the", "just received the",
+  "completed the interactive course", "i'm happy to share that i've completed",
+  "i'm happy to share that i just",
+  // LATAM/offshore staffing recruitment-firm pitches
+  "helping tech talent across latam", "tech talent across latam",
+  "remote-first company helping", "we are launchpad",
+  // Thought-leadership rhetorical opener patterns (no hiring intent)
+  "in the llm systems i've been building",
+  "over the past few months, i", "over the last few months, i",
+  "i've watched dozens of", "i've watched hundreds of",
+  "people…stop", "people, stop", "stop trusting ai",
+  "most teams are testing", "most teams are doing",
+];
+
+// 2026-04-29 round 3 — "contract rescue" gate.
+// User policy: accept ANY recruiter (US-staffing, Indian, etc.) IF the post
+// is for a real contract/freelance role in a target region (US/UK/EU/AU/SG/ME).
+// The buyer is the end-client, not the recruiter — even when offshore-shop is
+// the middleman, a real US contract is a real lead.
+//
+// Rescue passes only when ALL FOUR are true:
+//   1. Body has explicit contract signal (contract / c2c / 1099 / freelance)
+//   2. Body does NOT have FTE signals (full-time / salary range / RSU / 401k)
+//   3. Body has explicit target-region signal (USA / UK / EU / AU / SG / UAE
+//      named, or USD currency, or US-timezone shift, or USC/GC visa)
+//   4. Body does NOT have India-role markers (INR / LPA / CTC / IST hours /
+//      "kindly revert" / "share your cv at" / Indian outsourcing-firm names)
+//
+// Falsifying any of those drops back to the standard geo rejection rules.
+
+const RESCUE_CONTRACT_SIGNALS: string[] = [
+  "contract role", "contract opportunity", "contract position",
+  "contract-to-hire", "contract to hire",
+  "freelance", "freelancer",
+  "c2c", "corp-to-corp", "corp to corp", "1099",
+  "project-based", "project basis", "fixed-term",
+  "short-term contract", "long-term contract", "hourly contract",
+];
+
+const RESCUE_FTE_BLOCKERS: string[] = [
+  "full-time role", "full time role", "full-time position", "full time position",
+  "permanent role", "permanent position", "permanent hire",
+  "salary range", "yearly salary", "annual salary", "base salary",
+  "401k", "401(k)", "stock options", "rsu", "equity grant",
+  "comp package", "compensation package", "total comp", "fte ",
+];
+
+const RESCUE_TARGET_REGION_BODY: string[] = [
+  // Country / region names in body
+  "united states", " usa ", " u.s. ", "us-based", "us based",
+  "uk-based", "uk based", "europe-based", "europe based",
+  "australia", "australian", "singapore", "singaporean",
+  "uae", "united arab emirates", "saudi arabia",
+  // Visa codes (always US-context)
+  "usc/gc", "usc only", "us citizen", "green card holder",
+  "visa - usc", "visa: usc", "visa type- usc",
+  "h1b transfer", "h-1b", "tn visa", "opt visa",
+  // Currency
+  " usd", "$/hr", "$/hour", "/hr usd", "per hour usd",
+  "£/hr", "eur/hr", " eur ", "€/hr",
+  // Timezones
+  " est ", " pst ", " cst ", " mst ", " edt ", " pdt ",
+  "eastern time", "pacific time", "central time", "mountain time",
+  "us shift", "us hours", "us-hours",
+  // Remote-with-region
+  "remote us", "remote (us", "remote in us", "remote (usa",
+  "remote uk", "remote (uk", "remote eu", "remote (eu",
+];
+
+const RESCUE_INDIA_ROLE_MARKERS: string[] = [
+  // Currency / comp
+  "inr ", " inr,", " inr.", "lakh", "lakhs", "lpa", " ctc ", "ctc:",
+  "₹", "rupees", "rs.", " rs ",
+  // Working hours
+  "ist hours", "ist time", "ist shift", "ist working", "ist timezone",
+  "indian standard time", "9am ist", "10am ist", "5pm ist",
+  // Indian-recruiter language
+  "kindly revert", "kindly do", "do the needful", " pfa ", "pfa.",
+  "as per discussion", "interested candidates may", "interested candidates can",
+  "share your cv at", "share your resume at", "drop your cv",
+  "share updated cv", "share updated resume",
+  "looking for immediate joiners", "immediate joiner",
+  "notice period", "serving notice", "preferred notice",
+  // Indian outsourcing / job-board firms
+  " tcs ", " infosys ", " wipro ", " hcl ", " cognizant ",
+  "tech mahindra", "capgemini india", "ltimindtree",
+  "naukri", "naukri.com", "indeed.co.in",
+  // Explicit India-only role tags
+  "remote within india", "within india", "remote - india",
+  "indian candidates", "candidates from india",
+];
+
+function isContractRoleInTargetRegion(content: string): boolean {
+  const lower = content.toLowerCase();
+  const hasContract = RESCUE_CONTRACT_SIGNALS.some((s) => lower.includes(s));
+  if (!hasContract) return false;
+  const hasFte = RESCUE_FTE_BLOCKERS.some((s) => lower.includes(s));
+  if (hasFte) return false;
+  const hasTarget = RESCUE_TARGET_REGION_BODY.some((s) => lower.includes(s));
+  if (!hasTarget) return false;
+  const hasIndiaRole = RESCUE_INDIA_ROLE_MARKERS.some((s) => lower.includes(s));
+  if (hasIndiaRole) return false;
+  // 2026-04-29 round 3.1 — also block rescue when the post trips
+  // SPAM_BODY_SIGNALS (job-seeker affiliate spam, bench-staffing, "X
+  // fresh jobs" aggregators). Without this guard the rescue lets through
+  // the "📌 Looking for remote work in USD — 27 platforms" content-creator
+  // posts because they happen to include "freelance" + "USD".
+  const hasSpamBody = SPAM_BODY_SIGNALS.some((s) => lower.includes(s));
+  if (hasSpamBody) return false;
+  return true;
+}
+
+export function checkLocation(
+  headline: string,
+  postContent: string,
+  authorName: string = "",
+): { pass: boolean; reason: string } {
   const headlineLower = headline.toLowerCase();
   const contentLower = postContent.toLowerCase();
+  const authorNameLower = authorName.toLowerCase();
 
   // Reject non-English posts (Arabic, Chinese, Hindi, Urdu, Thai, etc.)
   // We only target English-speaking markets, so non-Latin scripts are likely from excluded regions
   const nonLatinCount = (postContent.match(/[\u0600-\u06FF\u0900-\u097F\u4E00-\u9FFF\u3040-\u309F\u30A0-\u30FF\u0E00-\u0E7F]/g) || []).length;
-  if (nonLatinCount > 20) {
+  if (nonLatinCount > 10) {
     return { pass: false, reason: "non-english-content" };
+  }
+
+  // 2026-04-29 round 3 — CONTRACT RESCUE PATH (see helper above for full
+  // criteria). Lifts the geo gate when the post is clearly a contract role
+  // in a target region, regardless of recruiter geo.
+  if (isContractRoleInTargetRegion(postContent)) {
+    return { pass: true, reason: "contract-rescue" };
+  }
+
+  // 2026-04-29: check the author NAME for excluded regions, not just the
+  // headline. Catches LinkedIn company pages whose headline is "X,XXX
+  // followers" but whose name is "Uttar Pradesh Jobs" / "Chennai Jobs"
+  // / "Madhya Pradesh Jobs" — pure India-region job aggregators that
+  // the headline-only check missed.
+  if (authorNameLower) {
+    const nameExcluded = EXCLUDED_REGIONS.some((r) => authorNameLower.includes(r));
+    if (nameExcluded) return { pass: false, reason: "excluded-region-author-name" };
   }
 
   // Check headline for excluded regions
@@ -165,6 +400,12 @@ function checkLocation(headline: string, postContent: string): { pass: boolean; 
   // Check post content for India/South Asia signals (city names, INR, etc.)
   const indiaContent = INDIA_CONTENT_SIGNALS.some((s) => contentLower.includes(s));
   if (indiaContent) return { pass: false, reason: "india-content-signal" };
+
+  // 2026-04-29: spam BODY signals — Indian-staffing C2C/bench/visa
+  // patterns + job-seeker affiliate spam. Runs after india-content-signal
+  // so the more-specific reason surfaces here.
+  const hasSpamBody = SPAM_BODY_SIGNALS.some((s) => contentLower.includes(s));
+  if (hasSpamBody) return { pass: false, reason: "spam-body-signal" };
 
   // Check post content for explicit excluded location phrases
   const locationPhrases = EXCLUDED_REGIONS.flatMap((r) => [
@@ -209,6 +450,12 @@ const OFFERING_SIGNALS = [
   "i help you", "let me help you", "i can help you",
   "dm me to work", "dm me to hire", "reach out to work with me",
   "referral partners", "partnership opportunity", "find clients for",
+  // 2026-04-29 round 2 — self-promoting consultants surfacing in pass group
+  "ai transformation partner", "transformation partner",
+  "i help businesses implement", "implementing ai",
+  "i've helped", "i have helped", "we've helped",
+  "introducing **", "introducing our", "introducing the",
+  "build smarter", "launch faster", "scale instantly",
 ];
 
 const SEEKING_SIGNALS = [
@@ -219,17 +466,46 @@ const SEEKING_SIGNALS = [
   "let me know if", "budget", "contract", "freelance", "consultant",
 ];
 
-// Full-time permanent role signals — reject these early
+// Full-time permanent role signals — reject these early.
+// We are CONTRACT/FREELANCE only. Anything that smells like W2/FTE
+// gets rejected up front so we don't burn Gemini score calls on it.
 const FULLTIME_SIGNALS = [
+  // Explicit role-type wording
   "full-time role", "full time role", "full-time position", "full time position",
-  "full-time opportunity", "full time opportunity", "permanent role", "permanent position",
-  "permanent hire", "direct hire", "full-time employee", "fte role",
-  "w2 role", "w2 only", "w2 position",
+  "full-time opportunity", "full time opportunity", "full-time hire", "full time hire",
+  "permanent role", "permanent position", "permanent hire", "perm hire",
+  "direct hire", "direct-hire", "full-time employee", "fte role", "fte position",
+  "w2 role", "w2 only", "w2 position", "w-2 only", "w-2 role",
+  // Compensation phrasing — annualized salary + benefits package = FTE
+  "salary range", "yearly salary", "annual salary", "base salary",
+  "comp package", "compensation package", "total comp",
+  "401k", "401(k)", "health insurance", "medical, dental",
+  "medical/dental", "health benefits", "stock options",
+  "equity grant", "rsu grant", "rsu package", "vested over",
+  "pto policy", "pto + ", "unlimited pto", "vacation days",
+  "paid time off", "paid vacation",
+  // Benefits-style hire pitch
+  "great benefits", "competitive benefits", "comprehensive benefits",
 ];
 
-// Hybrid / on-site role signals — reject early (Par1k is remote only)
+// Hybrid role signals — HARD reject, no escape via "fully remote".
+// Anything tagged hybrid is off-the-table per direction; we don't
+// even consider these regardless of how the rest of the post reads.
+// (We deliberately match on `hybrid <noun>` job-description phrasing
+// rather than the bare word "hybrid", so a post that says
+// "no hybrid here, fully remote" is not falsely killed.)
+const HYBRID_SIGNALS = [
+  "hybrid role", "hybrid position", "hybrid work", "hybrid model",
+  "hybrid setup", "hybrid arrangement", "hybrid schedule",
+  "hybrid based", "hybrid-based",
+];
+
+// On-site role signals — reject UNLESS the post also has a strong
+// remote signal (e.g. "we're an onsite-first shop but this role is
+// fully remote"). Bare "onsite" remains overridable; explicit hybrid
+// wording is not.
 const ONSITE_SIGNALS = [
-  "hybrid role", "hybrid position", "hybrid work", "in-office",
+  "in-office",
   "onsite role", "on-site role", "on site role", "on-site position", "onsite position",
   "must be local", "must be based in", "in-person",
   "3 days a week in office", "2 days in office", "office presence",
@@ -239,7 +515,7 @@ const ONSITE_SIGNALS = [
 // Regex: "📍 Location: City, ST" or "Location: City" without "remote" — signals on-site
 const LOCATION_PIN_REGEX = /(?:📍|location\s*:)\s*[A-Z][a-z]+(?:\s*,\s*[A-Z]{2})?/i;
 
-function quickIntentFilter(content: string, headline: string = ""): { pass: boolean; reason: string } {
+export function quickIntentFilter(content: string, headline: string = ""): { pass: boolean; reason: string } {
   const lower = content.toLowerCase();
   const headlineLower = headline.toLowerCase();
 
@@ -270,14 +546,36 @@ function quickIntentFilter(content: string, headline: string = ""): { pass: bool
   const hasGenAI = genaiSignals.some((s) => lower.includes(s));
   if (isMLOnly && !hasGenAI) return { pass: false, reason: "ml-only-not-genai" };
 
-  // Hard reject: hybrid/on-site role (Par1k is remote only)
-  const hasOnsite = ONSITE_SIGNALS.some((s) => lower.includes(s));
-  // Exception: "onsite" is ok if "remote" is also mentioned (hybrid-flexible)
-  const hasRemote = lower.includes("remote");
-  if (hasOnsite && !hasRemote) return { pass: false, reason: "onsite-role" };
+  // HARD reject: any hybrid wording. Per direction, we do NOT accept
+  // hybrid roles even if the rest of the post screams "remote-friendly".
+  // This gate runs before the onsite gate so it can't be overridden.
+  const hasHybrid = HYBRID_SIGNALS.some((s) => lower.includes(s));
+  if (hasHybrid) return { pass: false, reason: "hybrid-role" };
 
-  // Hard reject: explicit physical location pinned (📍 Location: City, ST) without "remote"
-  if (LOCATION_PIN_REGEX.test(content) && !hasRemote) {
+  // Hard reject: on-site role. "remote" alone isn't strong enough — many
+  // posts say "remote-friendly" while still being effectively on-site.
+  // Override threshold: explicit strong-remote signal must be present.
+  const hasOnsite = ONSITE_SIGNALS.some((s) => lower.includes(s));
+  const hasStrongRemote =
+    lower.includes("fully remote") ||
+    lower.includes("100% remote") ||
+    lower.includes("100 percent remote") ||
+    lower.includes("remote-first") ||
+    lower.includes("remote first") ||
+    lower.includes("remote only") ||
+    lower.includes("remote-only") ||
+    lower.includes("work from anywhere") ||
+    lower.includes("anywhere in the world") ||
+    lower.includes("anywhere in the us") ||
+    lower.includes("anywhere in europe") ||
+    lower.includes("anywhere in the eu");
+  if (hasOnsite && !hasStrongRemote) {
+    return { pass: false, reason: "onsite-role" };
+  }
+
+  // Hard reject: explicit physical location pinned (📍 Location: City, ST)
+  // without a strong remote signal.
+  if (LOCATION_PIN_REGEX.test(content) && !hasStrongRemote) {
     return { pass: false, reason: "location-pinned-no-remote" };
   }
 
@@ -295,6 +593,9 @@ function quickIntentFilter(content: string, headline: string = ""): { pass: bool
     "ai strategy consultant", "ai implementation consultant",
     "ai transformation consultant", "ai automation consultant",
     "ai advisor |", "ai expert |",
+    // 2026-04-29 round 2
+    "ai transformation partner", "transformation partner @",
+    "transformation partner",
   ];
   const isCompetitor = competitorHeadlines.some((h) => headlineLower.includes(h));
   if (isCompetitor) return { pass: false, reason: "competitor-headline" };
@@ -310,7 +611,34 @@ function quickIntentFilter(content: string, headline: string = ""): { pass: bool
     return { pass: false, reason: "newsletter-promo" };
   }
 
-  // Pass: seeking signals present
+  // Hard requirement: only contract / freelance / consultant work passes.
+  // A hiring-shaped post that doesn't mention any of those is most likely
+  // an FTE pitch we want nothing to do with.
+  const CONTRACT_SIGNALS = [
+    "contract", "contractor", "freelance", "freelancer",
+    "consultant", "consulting engagement", "consultancy",
+    "1099", "c2c", "corp-to-corp", "corp to corp",
+    "project-based", "project basis", "fixed-term",
+    "short-term contract", "long-term contract",
+    "contract-to-hire", "contract to hire",
+  ];
+  const HIRING_SHAPED_SIGNALS = [
+    "looking for", "hiring", "we're hiring", "we are hiring",
+    "we need", "i need", "our team needs",
+    "want to hire", "ready to hire", "open role",
+    "open position", "join our team", "join us",
+    "seeking a", "searching for",
+  ];
+  const hasContract = CONTRACT_SIGNALS.some((s) => lower.includes(s));
+  const isHiringShaped = HIRING_SHAPED_SIGNALS.some((s) => lower.includes(s));
+  if (isHiringShaped && !hasContract) {
+    return { pass: false, reason: "no-contract-signal" };
+  }
+
+  // Pass: explicit contract/freelance signal present.
+  if (hasContract) return { pass: true, reason: "contract-signal" };
+
+  // Pass: seeking signals present (fallback — discovery / referral asks etc.)
   const hasSeeking = SEEKING_SIGNALS.some((s) => lower.includes(s));
   if (hasSeeking) return { pass: true, reason: "seeking-signal" };
 
@@ -318,12 +646,15 @@ function quickIntentFilter(content: string, headline: string = ""): { pass: bool
   const hasPromo = PROMO_SIGNALS.some((s) => lower.includes(s));
   if (hasPromo) return { pass: false, reason: "promo-content" };
 
-  return { pass: true, reason: "neutral" };
+  // Default policy is now REJECT for vague posts. Without a contract
+  // or seeking signal, the post is unlikely to be a real lead — letting
+  // it through wastes Gemini scoring budget and produces low-quality drafts.
+  return { pass: false, reason: "no-explicit-intent" };
 }
 
 // ── Date Filter ──
 
-function isRecentPost(postedAt: Record<string, unknown> | undefined, maxAgeHours: number): boolean {
+export function isRecentPost(postedAt: Record<string, unknown> | undefined, maxAgeHours: number): boolean {
   if (!postedAt) return false;
 
   // harvestapi returns ISO date "2026-04-10T09:28:59.078Z"
@@ -370,7 +701,7 @@ function isRecentPost(postedAt: Record<string, unknown> | undefined, maxAgeHours
 
 import { fetchArticleBody, extractArticleLink, looksTruncated, mergeTeaserAndArticle } from "./article-fetch";
 
-function normalizeApifyResult(raw: Record<string, unknown>, query: string): ScrapedPost | null {
+export function normalizeApifyResult(raw: Record<string, unknown>, query: string): ScrapedPost | null {
   // harvestapi uses `content` + `linkedinUrl`; apimaestro uses `text` + `post_url`
   const text = (raw.content ?? raw.text ?? "") as string;
   const postUrl = (raw.linkedinUrl ?? raw.post_url ?? "") as string;
@@ -591,7 +922,7 @@ export async function runScraper(config: AppConfig, store: Store): Promise<void>
         seenFingerprints.add(fp);
 
         // Location filter (headline + content + India signals + recruiter spam)
-        const geo = checkLocation(post.authorHeadline, post.content);
+        const geo = checkLocation(post.authorHeadline, post.content, post.authorName);
         if (!geo.pass) {
           queryCounts.rejected_geo++;
           queryCounts.geo_reasons[geo.reason] = (queryCounts.geo_reasons[geo.reason] ?? 0) + 1;

@@ -1,0 +1,25 @@
+{
+  "_comment": "Strategy-A apimaestro filters. POPULATE post-Phase-3-dry-run after live-verifying which of these fields the actor actually accepts. The runner sends fields conditionally — empty arrays = field omitted from request body. See plan §3 gate #2.",
+  "keywords": [
+    "ai engineer contract remote",
+    "freelance ai developer remote",
+    "hiring ai engineer freelance",
+    "looking for ai consultant remote",
+    "rag pipeline contract remote"
+  ],
+  "_authorIndustryUrns_HYPOTHETICAL": [
+    "urn:li:industry:96",
+    "urn:li:industry:4",
+    "urn:li:industry:6"
+  ],
+  "_authorJobTitle_HYPOTHETICAL": [
+    "Founder",
+    "CEO",
+    "Co-founder",
+    "CTO",
+    "Head of Engineering",
+    "VP Engineering",
+    "AI Lead"
+  ],
+  "_authorCompanyUrns_VERIFIED_SUPPORTED_BY_APIFY_DOCS": []
+}
