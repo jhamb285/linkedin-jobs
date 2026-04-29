@@ -67,7 +67,7 @@ Positioning angle: {positioning}
 - Last: Soft sell CTA ("this is literally what I do for clients", "happy to compare notes on the data side")
 - ZERO questions. Show you understand BOTH business and tech.
 
-**CONNECTION_NOTE** — Under 200 chars. Business tone. "Your post on [topic] caught my eye. I work on the data/business side of AI. Let's connect." or similar — no @-tag (this is private, only the COMMENT @-tags).
+**CONNECTION_NOTE** — Under 200 chars. Business tone. Anchor in ONE concrete pattern from AJ's RAG matches above (e.g. "your data-quality issue reminds me of the lineage work I did on…"). Avoid generic "let's connect" filler. No @-tag (this is private, only the COMMENT @-tags).
 
 **DM** — 400-500 chars. AJ's business-focused DM.
 - Open human, reference their post naturally

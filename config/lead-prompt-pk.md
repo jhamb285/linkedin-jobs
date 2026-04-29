@@ -68,7 +68,7 @@ Positioning angle: {positioning}
 - Last: Soft sell CTA ("I build this kind of stuff", "happy to jam on the architecture")
 - ZERO questions. Show deep engineering expertise.
 
-**CONNECTION_NOTE** — Under 200 chars. Technical peer tone. "Saw your post. Building this kind of agentic stuff myself. Connecting." or similar — no @-tag (this is private, only the COMMENT @-tags).
+**CONNECTION_NOTE** — Under 200 chars. Technical peer tone. Anchor in ONE concrete pattern from PK's RAG matches above (e.g. "your tool-calling problem looks like the agent loop I shipped in…"). Avoid generic "let's connect" filler. No @-tag (this is private, only the COMMENT @-tags).
 
 **DM** — 400-500 chars. PK's technical DM.
 - Open human, reference their post
