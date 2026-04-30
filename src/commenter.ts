@@ -37,24 +37,35 @@ function parseSinglePersonaContent(text: string): SinglePersonaContent | null {
 }
 
 /**
- * Strip Twitter-style "@AuthorName" mentions from outreach text. We
- * still allow real email addresses (anything matching ".+@.+\..+") to
- * pass through, since the email body legitimately contains contact
- * addresses.
+ * Strip Twitter-style "@AuthorName" mentions from outreach text.
+ *
+ * 2026-04-30: SELECTIVE re-introduction — the COMMENT keeps its @-tag
+ * (the LinkedIn feed uses it to notify the author), but DMs, connection
+ * notes, follow-up DMs, and emails must NEVER contain @-mentions
+ * because they're private channels and look robotic. Despite explicit
+ * prompt rules, Gemini was still emitting "@FirstName" in DMs — so we
+ * strip at the code level as a hard backstop.
  *
  * Match pattern: @ followed by a word char, optionally with .-_ and
  * more word chars, but NOT preceded by a word char or `.` (so
  * "user@example.com" stays intact — the @ there has a word char before it).
  */
-// 2026-04-29: stripAtMentions removed at user request — @-comments are
-// now ENCOURAGED (the prompts instruct LLM to start outreach with
-// `@{author_first_name}` so the post author gets a notification).
-// Keeping the `sanitize()` helper as a pass-through stub so the call
-// sites in runGenerator() don't change shape — drop other content
-// transforms in here later if we need them.
+function stripAtMentions(text: string | null): string | null {
+  if (!text) return text;
+  return text.replace(/(^|[^\w.])@(\w[\w.-]*)/g, (_m, before) => before);
+}
 
 function sanitize(content: SinglePersonaContent): SinglePersonaContent {
-  return content;
+  return {
+    ...content,
+    // Keep @-tag in comment (LinkedIn feed notification)
+    comment: content.comment,
+    // Strip @ from all private channels
+    connectionNote: stripAtMentions(content.connectionNote) ?? "",
+    dm: stripAtMentions(content.dm) ?? "",
+    email: stripAtMentions(content.email),
+    emailSubject: stripAtMentions(content.emailSubject),
+  };
 }
 
 /**
