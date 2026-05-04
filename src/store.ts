@@ -119,6 +119,131 @@ export class Store {
    * Postgres UUID so downstream callers (matcher.insertScore, etc.) see
    * a consistent id.
    */
+  /**
+   * Upsert a contact from a scraped post. Called from scraper.ts AFTER
+   * normalizeApifyResult succeeds, regardless of whether the post itself
+   * passes filters — gives us a record of every author we ever fetched.
+   *
+   * Returns the contact UUID so the caller can link it to a post (when
+   * the post survived the filter chain and got inserted). Returns null
+   * when we can't extract a LinkedIn slug (rare, e.g. malformed URL).
+   *
+   * Metadata args carry filter outcome — when a fetch was rejected,
+   * `filter_rejected: true` and the reason stay on the identity row so
+   * the DB UI can surface "100 recruiters in Bengaluru we filtered out".
+   */
+  async upsertContactFromPost(args: {
+    authorName: string;
+    authorHeadline: string;
+    authorUrl: string;
+    scrapedAt: Date;
+    rejection?: { stage: string; reason: string } | null;
+  }): Promise<string | null> {
+    if (!args.authorUrl) return null;
+    const m = args.authorUrl.match(
+      /linkedin\.com\/(in|company|showcase)\/([^/?#]+)/i,
+    );
+    if (!m) return null;
+    const kind = m[1].toLowerCase();
+    const platform =
+      kind === "in"
+        ? "linkedin"
+        : kind === "company"
+          ? "linkedin_company"
+          : "linkedin_showcase";
+    const username = decodeURIComponent(m[2]).toLowerCase().trim();
+    const displayName = (args.authorName ?? "").trim() || username;
+    const headline = args.authorHeadline ?? null;
+
+    const metadata = args.rejection
+      ? {
+          filter_rejected: true,
+          stage: args.rejection.stage,
+          reason: args.rejection.reason,
+        }
+      : null;
+
+    // Existence check + branch.
+    const existing = (await db.execute(sql`
+      SELECT id, contact_id, first_seen_at, last_seen_at, metadata
+      FROM contact_identities
+      WHERE platform = ${platform} AND username = ${username}
+      LIMIT 1
+    `)).rows[0] as
+      | {
+          id: string;
+          contact_id: string;
+          first_seen_at: Date | null;
+          last_seen_at: Date | null;
+          metadata: Record<string, unknown> | null;
+        }
+      | undefined;
+
+    if (existing) {
+      const newFirst =
+        existing.first_seen_at && new Date(existing.first_seen_at) < args.scrapedAt
+          ? existing.first_seen_at
+          : args.scrapedAt;
+      const newLast =
+        existing.last_seen_at && new Date(existing.last_seen_at) > args.scrapedAt
+          ? existing.last_seen_at
+          : args.scrapedAt;
+      // Merge metadata: keep prior keys, overlay current rejection state.
+      // If the post passed this time (no rejection arg), CLEAR the
+      // filter_rejected flag since the contact is now confirmed valid.
+      let mergedMetadata: Record<string, unknown> | null = existing.metadata;
+      if (metadata) {
+        mergedMetadata = { ...(existing.metadata ?? {}), ...metadata };
+      } else if (existing.metadata?.filter_rejected) {
+        const { filter_rejected, stage, reason, ...rest } = existing.metadata;
+        void filter_rejected;
+        void stage;
+        void reason;
+        mergedMetadata = Object.keys(rest).length > 0 ? rest : null;
+      }
+      await db.execute(sql`
+        UPDATE contact_identities
+        SET display_name_at_capture = ${displayName},
+            headline = COALESCE(${headline}, headline),
+            profile_url = COALESCE(${args.authorUrl}, profile_url),
+            first_seen_at = ${newFirst},
+            last_seen_at = ${newLast},
+            metadata = ${mergedMetadata}
+        WHERE id = ${existing.id}
+      `);
+      return existing.contact_id;
+    }
+
+    // New identity — also create the parent contact.
+    const contactRow = (await db.execute(sql`
+      INSERT INTO contacts (display_name)
+      VALUES (${displayName})
+      RETURNING id
+    `)).rows[0] as { id: string };
+    const contactId = contactRow.id;
+    await db.execute(sql`
+      INSERT INTO contact_identities (
+        contact_id, platform, username, profile_url,
+        display_name_at_capture, headline,
+        metadata, first_seen_at, last_seen_at
+      ) VALUES (
+        ${contactId}, ${platform}, ${username}, ${args.authorUrl},
+        ${displayName}, ${headline},
+        ${metadata}, ${args.scrapedAt}, ${args.scrapedAt}
+      )
+    `);
+    return contactId;
+  }
+
+  /** Idempotently link a contact to a post they appeared in. */
+  async linkContactToPost(contactId: string, postId: string): Promise<void> {
+    await db.execute(sql`
+      INSERT INTO contact_post_links (contact_id, post_id)
+      VALUES (${contactId}, ${postId})
+      ON CONFLICT DO NOTHING
+    `);
+  }
+
   async insertPost(post: ScrapedPost): Promise<boolean> {
     const inserted = await db
       .insert(schema.posts)

@@ -917,12 +917,25 @@ export async function runScraper(config: AppConfig, store: Store): Promise<void>
         }
         seenFingerprints.add(fp);
 
+        const scrapedAt = post.scrapedAt ? new Date(post.scrapedAt) : new Date();
+
         // Location filter (headline + content + India signals + recruiter spam)
         const geo = checkLocation(post.authorHeadline, post.content, post.authorName);
         if (!geo.pass) {
           queryCounts.rejected_geo++;
           queryCounts.geo_reasons[geo.reason] = (queryCounts.geo_reasons[geo.reason] ?? 0) + 1;
           totalGeo++;
+          // Record the contact even though the post is rejected. This is
+          // the "sourcing memory" the DB UI surfaces — recruiters in
+          // wrong regions, on-site-only roles, etc. that we filtered out
+          // but might want to revisit if the criteria change.
+          await store.upsertContactFromPost({
+            authorName: post.authorName,
+            authorHeadline: post.authorHeadline,
+            authorUrl: post.authorUrl,
+            scrapedAt,
+            rejection: { stage: "geo", reason: geo.reason },
+          });
           continue;
         }
 
@@ -932,6 +945,13 @@ export async function runScraper(config: AppConfig, store: Store): Promise<void>
           queryCounts.rejected_intent++;
           queryCounts.intent_reasons[intent.reason] = (queryCounts.intent_reasons[intent.reason] ?? 0) + 1;
           totalFiltered++;
+          await store.upsertContactFromPost({
+            authorName: post.authorName,
+            authorHeadline: post.authorHeadline,
+            authorUrl: post.authorUrl,
+            scrapedAt,
+            rejection: { stage: "intent", reason: intent.reason },
+          });
           continue;
         }
 
@@ -943,6 +963,19 @@ export async function runScraper(config: AppConfig, store: Store): Promise<void>
         } else {
           queryCounts.rejected_dedup_db++;
           totalSkipped++;
+        }
+
+        // Always upsert + link, regardless of insert vs dedup outcome.
+        // The post.id is set in both branches (see store.insertPost).
+        const contactId = await store.upsertContactFromPost({
+          authorName: post.authorName,
+          authorHeadline: post.authorHeadline,
+          authorUrl: post.authorUrl,
+          scrapedAt,
+          rejection: null,
+        });
+        if (contactId && post.id) {
+          await store.linkContactToPost(contactId, post.id);
         }
       }
 
