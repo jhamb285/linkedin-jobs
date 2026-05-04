@@ -611,9 +611,12 @@ export function quickIntentFilter(content: string, headline: string = ""): { pas
     return { pass: false, reason: "newsletter-promo" };
   }
 
-  // Hard requirement: only contract / freelance / consultant work passes.
-  // A hiring-shaped post that doesn't mention any of those is most likely
-  // an FTE pitch we want nothing to do with.
+  // Contract intent is enforced by the query layer (search-queries.json
+  // pins "contract"/"freelance"/"remote" into every active query). The
+  // filter no longer hard-rejects hiring-shaped posts that omit the
+  // word "contract" — that responsibility belongs to the queries, and
+  // the LLM scorer is the final arbiter of whether a post is a real
+  // engagement.
   const CONTRACT_SIGNALS = [
     "contract", "contractor", "freelance", "freelancer",
     "consultant", "consulting engagement", "consultancy",
@@ -622,18 +625,7 @@ export function quickIntentFilter(content: string, headline: string = ""): { pas
     "short-term contract", "long-term contract",
     "contract-to-hire", "contract to hire",
   ];
-  const HIRING_SHAPED_SIGNALS = [
-    "looking for", "hiring", "we're hiring", "we are hiring",
-    "we need", "i need", "our team needs",
-    "want to hire", "ready to hire", "open role",
-    "open position", "join our team", "join us",
-    "seeking a", "searching for",
-  ];
   const hasContract = CONTRACT_SIGNALS.some((s) => lower.includes(s));
-  const isHiringShaped = HIRING_SHAPED_SIGNALS.some((s) => lower.includes(s));
-  if (isHiringShaped && !hasContract) {
-    return { pass: false, reason: "no-contract-signal" };
-  }
 
   // Pass: explicit contract/freelance signal present.
   if (hasContract) return { pass: true, reason: "contract-signal" };
@@ -646,10 +638,14 @@ export function quickIntentFilter(content: string, headline: string = ""): { pas
   const hasPromo = PROMO_SIGNALS.some((s) => lower.includes(s));
   if (hasPromo) return { pass: false, reason: "promo-content" };
 
-  // Default policy is now REJECT for vague posts. Without a contract
-  // or seeking signal, the post is unlikely to be a real lead — letting
-  // it through wastes Gemini scoring budget and produces low-quality drafts.
-  return { pass: false, reason: "no-explicit-intent" };
+  // Default policy: PASS to scoring. Queries already enforce contract /
+  // remote intent at the search layer, and the geo + spam-body + hybrid +
+  // onsite + offering rejects above have stripped the obvious noise. The
+  // LLM scorer is the final filter — letting borderline posts through
+  // recovers leads where the language is unconventional but the intent
+  // is real (founders writing in their own voice, multi-paragraph posts
+  // where contract terms appear later in the body, etc.).
+  return { pass: true, reason: "no-explicit-intent" };
 }
 
 // ── Date Filter ──
