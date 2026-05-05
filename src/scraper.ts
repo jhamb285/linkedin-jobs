@@ -119,51 +119,78 @@ const EXCLUDED_REGIONS: string[] = [
   "zambia", "lusaka",
 ];
 
-// India/South Asia/Africa content signals (city names, currency, patterns)
-const INDIA_CONTENT_SIGNALS: string[] = [
-  // India — location phrases
+// India/South Asia/Africa content signals — split into HARD and SOFT tiers.
+//
+// HARD = unambiguous tells that single-match-reject. Explicit "in India" /
+// IST timezone / Indian-English idioms / Indian comp markers / etc. — these
+// only appear when the post truly originates from or targets India/PK/BD/AF.
+//
+// SOFT = ambiguous signals that require 2+ matches OR absent target-region
+// anchor before rejecting. City names ("bangalore"), outsourcing-firm names
+// ("tcs ", "infosys "), and African city names — these can legitimately
+// appear in US/EU posts ("our team is in NYC and Bangalore, role is fully
+// remote in the US"). Single match alone is too noisy. The 04-28 round
+// that conflated these with the hard signals dropped pass rate from
+// ~22% to ~5%; this split restores the original signal/noise ratio.
+const INDIA_CONTENT_HARD: string[] = [
+  // India — explicit statements
   "in india", "india-based", "india based", "indian market", "indian candidates",
-  // India — cities
-  "bangalore", "bengaluru", "hyderabad", "pune", "chennai",
-  "mumbai", "delhi", "noida", "gurgaon", "gurugram",
-  "kolkata", "ahmedabad", "jaipur", "kochi", "indore",
-  "nagpur", "coimbatore", "lucknow", "chandigarh",
-  "bhubaneswar", "thiruvananthapuram", "vadodara", "surat", "visakhapatnam",
-  // India — money + benefits markers
-  "inr", "₹", "lakh", "lakhs", "lpa", "ctc",
-  "₹ lpa", "rs.", "rs ", "rupees", "fixed pay", "variable pay",
-  // India — timezone signals (a remote-from-india tell)
+  // India — IST timezone (only used in India-context)
   "ist hours", "ist time", "ist timezone", "ist working hours",
-  "indian standard time", "ist shift", "9am ist", "10am ist",
-  // India — language patterns common in IN postings
+  "indian standard time", "ist shift", "9am ist", "10am ist", "5pm ist",
+  // India — language idioms (Indian-English only)
   "do the needful", "kindly revert", "kindly do", "pfa ",
   "as per discussion", "interested candidates may", "interested candidates can",
   "share your cv at", "share your resume at", "drop your cv",
   "drop your resume", "share updated cv", "share updated resume",
   "looking for immediate joiners", "immediate joiner", "immediate joiners",
   "notice period", "serving notice", "preferred notice",
-  // India — large outsourcing/services firms (recruiter spam tell)
+  // India — comp markers (rupee / lakh / LPA / CTC)
+  "inr ", " inr,", " inr.", "₹", "lakh", "lakhs", "lpa", "ctc:",
+  "rupees",
+  // India — job board
+  "naukri", "naukri.com", "indeed.co.in",
+  // Pakistan — explicit
+  "in pakistan", "pakistan-based", "pakistani candidates",
+  // Bangladesh — explicit
+  "in bangladesh", "bangladesh-based",
+  // Africa — explicit ("in country" / "country-based")
+  "in nigeria", "nigeria-based",
+  "in kenya", "kenya-based",
+  "in egypt", "egypt-based",
+  "in morocco", "in ghana", "in ethiopia", "in tanzania", "in uganda",
+  "tunisian candidates", "algerian candidates",
+];
+
+const INDIA_CONTENT_SOFT: string[] = [
+  // India — cities (alone don't reject — see SOFT logic in checkLocation)
+  "bangalore", "bengaluru", "hyderabad", "pune", "chennai",
+  "mumbai", "delhi", "noida", "gurgaon", "gurugram",
+  "kolkata", "ahmedabad", "jaipur", "kochi", "indore",
+  "nagpur", "coimbatore", "lucknow", "chandigarh",
+  "bhubaneswar", "thiruvananthapuram", "vadodara", "surat", "visakhapatnam",
+  // India — outsourcing firms (can appear in legit comparisons)
   "tcs ", "infosys ", "wipro ", "hcl ", "cognizant ",
   "tech mahindra", "capgemini india", "accenture india",
   "ltimindtree", "mphasis ", "mindtree ", "persistent systems",
-  "naukri", "naukri.com",
-  // Pakistan
-  "in pakistan", "pakistan-based", "pakistani candidates",
+  // Pakistan — cities
   "lahore", "karachi", "islamabad", "rawalpindi", "peshawar",
   "pkr", "rs/-",
-  // Bangladesh
-  "in bangladesh", "bangladesh-based", "dhaka", "chittagong",
-  // Africa
-  "in nigeria", "nigeria-based", "lagos", "abuja",
-  "in kenya", "kenya-based", "nairobi",
-  "south africa", "johannesburg", "cape town", "pretoria",
-  "in egypt", "egypt-based", "cairo",
-  "in morocco", "casablanca", "rabat",
-  "in ghana", "accra",
-  "in ethiopia", "addis ababa",
-  "in tanzania", "dar es salaam",
-  "in uganda", "kampala",
-  "tunisian candidates", "algerian candidates",
+  // Bangladesh — cities
+  "dhaka", "chittagong",
+  // Currency loose markers (frequent false positives)
+  "rs.", "rs ", "fixed pay", "variable pay",
+  // Africa — cities (often in legit posts mentioning a global team)
+  "lagos", "abuja", "ibadan", "kano",
+  "nairobi", "mombasa",
+  "johannesburg", "cape town", "pretoria", "durban",
+  "south africa",
+  "cairo", "alexandria", "giza",
+  "casablanca", "rabat", "marrakech",
+  "accra", "kumasi",
+  "addis ababa",
+  "dar es salaam", "dodoma",
+  "kampala",
 ];
 
 // Recruiter spam headline signals (staffing agencies from excluded regions)
@@ -296,6 +323,11 @@ const RESCUE_TARGET_REGION_BODY: string[] = [
   "uk-based", "uk based", "europe-based", "europe based",
   "australia", "australian", "singapore", "singaporean",
   "uae", "united arab emirates", "saudi arabia",
+  // Common natural-language phrasings ("in the US", "in Europe", etc.)
+  "in the us", "in the usa", "in the u.s.", "in the uk",
+  "in europe", "in the eu", "across the us", "across europe",
+  "anywhere in the us", "anywhere in europe", "anywhere in the eu",
+  "based in the us", "based in europe", "based in the uk",
   // Visa codes (always US-context)
   "usc/gc", "usc only", "us citizen", "green card holder",
   "visa - usc", "visa: usc", "visa type- usc",
@@ -307,9 +339,13 @@ const RESCUE_TARGET_REGION_BODY: string[] = [
   " est ", " pst ", " cst ", " mst ", " edt ", " pdt ",
   "eastern time", "pacific time", "central time", "mountain time",
   "us shift", "us hours", "us-hours",
-  // Remote-with-region
+  // Remote-with-region (loose phrasings)
   "remote us", "remote (us", "remote in us", "remote (usa",
   "remote uk", "remote (uk", "remote eu", "remote (eu",
+  "remote in the us", "remote in the usa", "remote in the uk",
+  "remote in europe", "remote in the eu",
+  "fully remote in the us", "fully remote in europe", "fully remote in the uk",
+  "fully remote in the eu",
 ];
 
 const RESCUE_INDIA_ROLE_MARKERS: string[] = [
@@ -397,9 +433,32 @@ export function checkLocation(
   const hasTargetRegion = TARGET_REGIONS.some((r) => headlineLower.includes(r));
   if (isSpamRecruiter && !hasTargetRegion) return { pass: false, reason: "spam-recruiter" };
 
-  // Check post content for India/South Asia signals (city names, INR, etc.)
-  const indiaContent = INDIA_CONTENT_SIGNALS.some((s) => contentLower.includes(s));
-  if (indiaContent) return { pass: false, reason: "india-content-signal" };
+  // Check post content for India/South Asia signals — two-tier evaluation.
+  //
+  // HARD tier: any single match rejects. These are unambiguous tells
+  // (explicit "in India", IST timezone, Indian-English idioms, INR/LPA).
+  //
+  // SOFT tier: requires either (a) ≥2 matches, OR (b) zero target-region
+  // anchor anywhere in the body. A single soft hit + a target-region
+  // anchor (e.g. "fully remote in the US, our team is in Bangalore")
+  // is allowed through — the role is in the target region, the city
+  // mention is just team-context.
+  const hardHit = INDIA_CONTENT_HARD.some((s) => contentLower.includes(s));
+  if (hardHit) return { pass: false, reason: "india-content-signal-hard" };
+
+  const softMatches = INDIA_CONTENT_SOFT.filter((s) => contentLower.includes(s));
+  if (softMatches.length >= 2) {
+    return { pass: false, reason: "india-content-signal-soft-multi" };
+  }
+  if (softMatches.length === 1) {
+    const hasTargetAnchor = RESCUE_TARGET_REGION_BODY.some((s) =>
+      contentLower.includes(s),
+    );
+    if (!hasTargetAnchor) {
+      return { pass: false, reason: "india-content-signal-soft-single" };
+    }
+    // Single soft hit + target-region anchor → pass through to next check.
+  }
 
   // 2026-04-29: spam BODY signals — Indian-staffing C2C/bench/visa
   // patterns + job-seeker affiliate spam. Runs after india-content-signal
@@ -407,13 +466,26 @@ export function checkLocation(
   const hasSpamBody = SPAM_BODY_SIGNALS.some((s) => contentLower.includes(s));
   if (hasSpamBody) return { pass: false, reason: "spam-body-signal" };
 
-  // Check post content for explicit excluded location phrases
+  // Check post content for explicit excluded location phrases. When the
+  // post ALSO has a strong target-region anchor in body (e.g. "remote in
+  // the US"), allow it through — the excluded-region mention is likely
+  // team-context ("our team is in NYC and Bangalore"), not a role
+  // location. Without this override the check fights the india-content
+  // soft-single rule above and re-rejects the same false-positives.
   const locationPhrases = EXCLUDED_REGIONS.flatMap((r) => [
     `in ${r}`, `based in ${r}`, `from ${r}`, `located in ${r}`,
     `${r} based`, `${r} only`, `${r}-based`,
   ]);
   const contentExcluded = locationPhrases.some((p) => contentLower.includes(p));
-  if (contentExcluded) return { pass: false, reason: "excluded-region-content" };
+  if (contentExcluded) {
+    const hasTargetAnchor = RESCUE_TARGET_REGION_BODY.some((s) =>
+      contentLower.includes(s),
+    );
+    if (!hasTargetAnchor) {
+      return { pass: false, reason: "excluded-region-content" };
+    }
+    // Has target anchor — let it through.
+  }
 
   // Check headline for target regions
   if (hasTargetRegion) return { pass: true, reason: "target-region" };
