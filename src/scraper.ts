@@ -3,6 +3,7 @@ import type { AppConfig, ScrapedPost } from "./types";
 import type { Store, QueryRunCounts } from "./store";
 import { loadSearchQueries } from "./config";
 import { recordEvent } from "./events";
+import { classifyAuthor } from "./author-classifier";
 import { createHash } from "crypto";
 
 /**
@@ -991,6 +992,15 @@ export async function runScraper(config: AppConfig, store: Store): Promise<void>
 
         const scrapedAt = post.scrapedAt ? new Date(post.scrapedAt) : new Date();
 
+        // Classify the author once per post — used by every upsert call site
+        // below so each contact_identity row gets tagged regardless of which
+        // filter outcome it lands in.
+        const classification = classifyAuthor(
+          post.authorName,
+          post.authorHeadline,
+          post.content,
+        );
+
         // Location filter (headline + content + India signals + recruiter spam)
         const geo = checkLocation(post.authorHeadline, post.content, post.authorName);
         if (!geo.pass) {
@@ -1007,6 +1017,8 @@ export async function runScraper(config: AppConfig, store: Store): Promise<void>
             authorUrl: post.authorUrl,
             scrapedAt,
             rejection: { stage: "geo", reason: geo.reason },
+            tags: classification.tags,
+            primaryRole: classification.primaryRole,
           });
           continue;
         }
@@ -1023,6 +1035,8 @@ export async function runScraper(config: AppConfig, store: Store): Promise<void>
             authorUrl: post.authorUrl,
             scrapedAt,
             rejection: { stage: "intent", reason: intent.reason },
+            tags: classification.tags,
+            primaryRole: classification.primaryRole,
           });
           continue;
         }
@@ -1045,6 +1059,8 @@ export async function runScraper(config: AppConfig, store: Store): Promise<void>
           authorUrl: post.authorUrl,
           scrapedAt,
           rejection: null,
+          tags: classification.tags,
+          primaryRole: classification.primaryRole,
         });
         if (contactId && post.id) {
           await store.linkContactToPost(contactId, post.id);

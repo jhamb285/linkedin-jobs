@@ -138,6 +138,8 @@ export class Store {
     authorUrl: string;
     scrapedAt: Date;
     rejection?: { stage: string; reason: string } | null;
+    tags?: string[];
+    primaryRole?: string | null;
   }): Promise<string | null> {
     if (!args.authorUrl) return null;
     const m = args.authorUrl.match(
@@ -155,13 +157,23 @@ export class Store {
     const displayName = (args.authorName ?? "").trim() || username;
     const headline = args.authorHeadline ?? null;
 
-    const metadata = args.rejection
-      ? {
-          filter_rejected: true,
-          stage: args.rejection.stage,
-          reason: args.rejection.reason,
-        }
-      : null;
+    // Build the metadata payload from rejection state + classification tags.
+    // Both are merged onto a single JSONB column on contact_identities so
+    // analytics queries (e.g. "% of scraped authors who are students") can
+    // run with a single GIN index lookup.
+    const metaParts: Record<string, unknown> = {};
+    if (args.rejection) {
+      metaParts.filter_rejected = true;
+      metaParts.stage = args.rejection.stage;
+      metaParts.reason = args.rejection.reason;
+    }
+    if (args.tags && args.tags.length > 0) {
+      metaParts.tags = args.tags;
+    }
+    if (args.primaryRole) {
+      metaParts.primary_role = args.primaryRole;
+    }
+    const metadata = Object.keys(metaParts).length > 0 ? metaParts : null;
 
     // Existence check + branch.
     const existing = (await db.execute(sql`
@@ -188,12 +200,24 @@ export class Store {
         existing.last_seen_at && new Date(existing.last_seen_at) > args.scrapedAt
           ? existing.last_seen_at
           : args.scrapedAt;
-      // Merge metadata: keep prior keys, overlay current rejection state.
-      // If the post passed this time (no rejection arg), CLEAR the
-      // filter_rejected flag since the contact is now confirmed valid.
+      // Merge metadata: keep prior keys, overlay current state.
+      //   - tags / primary_role: latest classification overrides prior
+      //   - filter_rejected: if NO rejection in current call, clear the
+      //     prior rejection (contact is now confirmed valid)
+      //   - if current call has neither rejection nor tags (legacy path),
+      //     same clearing behaviour applies via the `else if` branch
       let mergedMetadata: Record<string, unknown> | null = existing.metadata;
       if (metadata) {
-        mergedMetadata = { ...(existing.metadata ?? {}), ...metadata };
+        const next: Record<string, unknown> = {
+          ...(existing.metadata ?? {}),
+          ...metadata,
+        };
+        if (!args.rejection) {
+          delete next.filter_rejected;
+          delete next.stage;
+          delete next.reason;
+        }
+        mergedMetadata = Object.keys(next).length > 0 ? next : null;
       } else if (existing.metadata?.filter_rejected) {
         const { filter_rejected, stage, reason, ...rest } = existing.metadata;
         void filter_rejected;
