@@ -110,7 +110,9 @@ export async function runGenerator(
   };
 
   let generated = 0;
-  let skipped = 0;
+  let skippedDedup = 0;
+  let parseFailed = 0;
+  let apiError = 0;
   let ragOk = 0;
   let ragFail = 0;
 
@@ -121,7 +123,18 @@ export async function runGenerator(
       console.log(
         `  [skip] Already engaged with ${lead.author_name} recently`,
       );
-      skipped++;
+      skippedDedup++;
+      await recordEvent({
+        eventType: "draft.skipped",
+        workflow: "linkedin_jobs",
+        actor: "linkedin-jobs.commenter",
+        payload: {
+          postId: lead.id,
+          persona,
+          scoreTotal: lead.total,
+          reason: "author-commented-recently",
+        },
+      });
       continue;
     }
 
@@ -140,12 +153,41 @@ export async function runGenerator(
       .replace("{rag_context}", ragContext);
 
     try {
-      const result = await model.generateContent(prompt);
-      const text = result.response.text();
-      const parsed = parseSinglePersonaContent(text);
+      // 1 retry on bad parse — Gemini occasionally returns malformed JSON
+      // even on identical input. Keeps a single transient hiccup from
+      // dropping a real lead silently.
+      let parsed: SinglePersonaContent | null = null;
+      let lastText = "";
+      for (let attempt = 1; attempt <= 2 && !parsed; attempt++) {
+        const result = await model.generateContent(prompt);
+        lastText = result.response.text();
+        parsed = parseSinglePersonaContent(lastText);
+        if (!parsed && attempt === 1) {
+          console.log(
+            `  [retry] Parse failed on first attempt for ${lead.author_name} (${persona}), retrying...`,
+          );
+        }
+      }
 
       if (!parsed) {
-        console.log(`  [skip] Bad generation for ${lead.id}`);
+        parseFailed++;
+        await recordEvent({
+          eventType: "draft.failed",
+          workflow: "linkedin_jobs",
+          actor: "linkedin-jobs.commenter",
+          payload: {
+            postId: lead.id,
+            persona,
+            scoreTotal: lead.total,
+            reason: "parse-failed",
+            // First 400 chars of the unparseable text so we can audit
+            // recurring Gemini formatting issues from Settings analytics.
+            rawSample: lastText.slice(0, 400),
+          },
+        });
+        console.log(
+          `  [drop] Parse failed (after retry) for ${lead.author_name} (${persona})`,
+        );
         continue;
       }
 
@@ -188,13 +230,27 @@ export async function runGenerator(
 
       generated++;
     } catch (err) {
+      apiError++;
+      const message = (err as Error).message ?? String(err);
+      await recordEvent({
+        eventType: "draft.failed",
+        workflow: "linkedin_jobs",
+        actor: "linkedin-jobs.commenter",
+        payload: {
+          postId: lead.id,
+          persona,
+          scoreTotal: lead.total,
+          reason: "api-error",
+          error: message.slice(0, 400),
+        },
+      });
       console.error(
-        `  [!] Error for ${lead.id} (${persona}): ${(err as Error).message}`,
+        `  [!] API error for ${lead.author_name} (${persona}): ${message}`,
       );
     }
   }
 
   console.log(
-    `\nGeneration complete: ${generated} ${dryRun ? "(dry-run)" : "drafts written"}, ${skipped} skipped (dedup). RAG: ${ragOk} grounded / ${ragFail} fallback.`,
+    `\nGeneration complete: ${generated} ${dryRun ? "(dry-run)" : "drafts written"}, ${skippedDedup} skipped-dedup, ${parseFailed} parse-failed, ${apiError} api-error. RAG: ${ragOk} grounded / ${ragFail} fallback.`,
   );
 }
