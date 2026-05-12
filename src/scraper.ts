@@ -74,17 +74,13 @@ const TARGET_REGIONS: string[] = [
 ];
 
 const EXCLUDED_REGIONS: string[] = [
-  // India — states + union territories
-  // (added 2026-04-29 — "X State Jobs" company pages were slipping past
-  //  the city-only list)
-  "andhra pradesh", "arunachal pradesh", "assam", "bihar",
-  "chhattisgarh", "goa", "gujarat", "haryana", "himachal pradesh",
-  "jharkhand", "karnataka", "kerala", "madhya pradesh", "maharashtra",
-  "manipur", "meghalaya", "mizoram", "nagaland", "odisha", "punjab",
-  "rajasthan", "sikkim", "tamil nadu", "telangana", "tripura",
-  "uttar pradesh", "uttarakhand", "west bengal",
-  "jammu and kashmir", "ladakh", "puducherry",
   // India — country + cities
+  // (Indian states + union territories were added 2026-04-29 as a
+  // single-match reject, then rolled back 2026-05-12 because they
+  // were over-rejecting US/EU posts mentioning a state in passing
+  // and produced no measurable win over the city + country list.
+  // "X State Jobs" company pages are caught instead by the
+  // author-name region check + the india-content-signal tier.)
   "india", "delhi", "mumbai", "bangalore", "bengaluru", "hyderabad",
   "chennai", "pune", "kolkata", "ahmedabad", "noida", "gurgaon",
   "gurugram", "jaipur", "lucknow", "chandigarh", "kochi", "indore",
@@ -194,98 +190,32 @@ const INDIA_CONTENT_SOFT: string[] = [
   "kampala",
 ];
 
-// Recruiter spam headline signals (staffing agencies from excluded regions)
-// Extended 2026-04-29 after analyze-test-c surfaced 8 polished-recruiter
-// false-positives in the 64-post pass group; the original list only
-// caught explicit "staffing" / "bench sales" wording.
+// Recruiter spam headline signals (staffing agencies from excluded regions).
+//
+// 2026-05-12: trimmed back to the lead-magnet baseline (7 unambiguous
+// staffing terms). The 04-29 expansion added 24 patterns covering
+// "recruiter" / "talent acquisition" / "matchmaker" — that catches a
+// lot of legitimate recruiter-titled buyers (e.g. in-house Talent
+// Acquisition leads at startups posting genuine contract roles). The
+// LLM scorer is the right place for that judgment, not the filter.
 const SPAM_HEADLINE_SIGNALS: string[] = [
-  // Original
   "bench sales", "staffing", "manpower", "placement agency",
   "offshore development", "nearshore", "bodyshop",
-  // Recruiter titles — common at staffing/agency outfits
-  "senior recruiter", "sr recruiter", "sr. recruiter",
-  "technical recruiter", "tech recruiter", "executive recruiter",
-  "freelance recruiter", "contract recruiter", "us it recruiter",
-  // Talent / HR titles
-  "talent acquisition", "talent manager", "talent scout",
-  "hr executive", "hr recruiter", "hr recruitment",
-  // Recruitment-org titles
-  "recruitment consultant", "recruiting at", "headhunting", "headhunter",
-  "placement consultant", "resourcing specialist", "resource consultant",
-  // Connector / matchmaker positioning
-  "connecting talent", "connecting high",
-  "bridging talent", "bridging data and",
-  // Volume-recruiter "open roles" headlines
-  "100+ roles", "open to connect",
-  // US-staffing variants (often Indian-owned but US-fronted)
-  "us staffing", "it staffing",
-  // Additional recruiter / matchmaker titles surfaced 2026-04-29 round 2
-  "vp recruitment", "vice president recruitment",
-  "practice manager", "design & tech recruitment", "tech recruitment",
-  "talent matchmaker", "matchmaker", "zzp matchmaker",
-  "client manager", "new business development",
 ];
 
-// Spam BODY signals — patterns inside the post text that strongly
-// indicate Indian-staffing C2C / bench / visa-broker content. Added
-// 2026-04-29 — these slip past the headline check because the recruiter
-// uses polished US-style headlines but the BODY gives them away.
-const SPAM_BODY_SIGNALS: string[] = [
-  // C2C (corp-to-corp) staffing patterns
-  "available for c2c", "c2c bench", "open for c2c", "c2c requirement",
-  "c2c opportunity", "c2c position", "c2c role", "we have a c2c",
-  "consultant for c2c", "c2c only", "looking for c2c",
-  "c2h opportunity", "c2h role", "c2h contract",
-  // Body-side "share your CV" patterns (Indian-staffing convention)
-  "share your cv", "share updated cv", "share updated resume",
-  "share resume at", "send resume to", "drop your cv", "drop your resume",
-  // Visa-class patterns (US contracting via offshore staffing)
-  "visa - usc", "visa: usc", "visa type- usc", "usc/gc only",
-  "h1b transfer", "h-1b transfer", "h1 transfer", "available for h1",
-  // Bench-staffing patterns
-  "certified bench", "consulting bench", "staffing bench",
-  "partner certified bench", "expert bench",
-  // Job-seeker / affiliate spam patterns
-  "looking for remote work opportunities", "looking for remote opportunities",
-  "looking for work opportunities", "looking for my next big move",
-  "looking for my next role", "looking for my next opportunity",
-  "platforms that offer remote", "best platforms that offer",
-  "27 platforms", "20 platforms", "10 platforms that",
-  // 2026-04-29 round 3.1 — additional affiliate / aggregator spam patterns
-  "stop relying only on linkedin", "stop relying on linkedin",
-  "most people only search for jobs", "dozens of better pl",
-  "tuesday drop", "wednesday drop", "thursday drop", "friday drop",
-  "fresh jobs in engineering", "fresh jobs in design",
-  " fresh jobs ", "hirehut squad",
-  "looking for remote work", "looking for remote opp", "want to get paid in usd",
-  "looking for remote", "remote work in 2026",
-  // Explicit not-a-hiring-post tags & open-to-work signals
-  "#not_a_hiring_post", "not a hiring post", "#open_to_opportunities",
-  "i'm currently open to opportunities", "i am currently open to opportunities",
-  "open to new opportunities", "currently open to",
-  "#opentowork", "open to work", "opentowork",
-  // Job-aggregator / weekly-jobs spam
-  "top remote l&d jobs", "top remote jobs", "top remote",
-  "weekly jobs", "weekly job round-up", "weekly remote jobs",
-  "this week's remote", "your weekly job",
-  // Personal-achievement / certification posts (not hiring)
-  "i just passed", "i am thrilled to share that i just",
-  "i'm thrilled to share that i just",
-  "i just earned", "just earned the", "just received the",
-  "completed the interactive course", "i'm happy to share that i've completed",
-  "i'm happy to share that i just",
-  // LATAM/offshore staffing recruitment-firm pitches
-  "helping tech talent across latam", "tech talent across latam",
-  "remote-first company helping", "we are launchpad",
-  // Thought-leadership rhetorical opener patterns (no hiring intent)
-  "in the llm systems i've been building",
-  "over the past few months, i", "over the last few months, i",
-  "i've watched dozens of", "i've watched hundreds of",
-  "people…stop", "people, stop", "stop trusting ai",
-  "most teams are testing", "most teams are doing",
-];
+// SPAM_BODY_SIGNALS removed 2026-05-12.
+//
+// The 80-pattern array was added 2026-04-29 to catch Indian-staffing C2C
+// / bench / visa-broker patterns + "27 remote platforms" affiliate spam
+// + #opentowork posts + thought-leadership openers. In production this
+// over-rejected real contract roles where the body mentioned "C2C" or
+// "share your cv" as a normal recruiting term, AND the LLM scorer
+// already scores all of these noise patterns as 0/40. Keeping the
+// scorer as the noise gate (rather than the filter chain) restored
+// 60-70 inserted/day vs the post-04-29 baseline of ~10. See lead-magnet
+// audit — the original tool ran without this layer.
 
-// 2026-04-29 round 3 — "contract rescue" gate.
+// "contract rescue" gate.
 // User policy: accept ANY recruiter (US-staffing, Indian, etc.) IF the post
 // is for a real contract/freelance role in a target region (US/UK/EU/AU/SG/ME).
 // The buyer is the end-client, not the recruiter — even when offshore-shop is
@@ -382,13 +312,6 @@ function isContractRoleInTargetRegion(content: string): boolean {
   if (!hasTarget) return false;
   const hasIndiaRole = RESCUE_INDIA_ROLE_MARKERS.some((s) => lower.includes(s));
   if (hasIndiaRole) return false;
-  // 2026-04-29 round 3.1 — also block rescue when the post trips
-  // SPAM_BODY_SIGNALS (job-seeker affiliate spam, bench-staffing, "X
-  // fresh jobs" aggregators). Without this guard the rescue lets through
-  // the "📌 Looking for remote work in USD — 27 platforms" content-creator
-  // posts because they happen to include "freelance" + "USD".
-  const hasSpamBody = SPAM_BODY_SIGNALS.some((s) => lower.includes(s));
-  if (hasSpamBody) return false;
   return true;
 }
 
@@ -461,11 +384,9 @@ export function checkLocation(
     // Single soft hit + target-region anchor → pass through to next check.
   }
 
-  // 2026-04-29: spam BODY signals — Indian-staffing C2C/bench/visa
-  // patterns + job-seeker affiliate spam. Runs after india-content-signal
-  // so the more-specific reason surfaces here.
-  const hasSpamBody = SPAM_BODY_SIGNALS.some((s) => contentLower.includes(s));
-  if (hasSpamBody) return { pass: false, reason: "spam-body-signal" };
+  // (SPAM_BODY_SIGNALS check removed 2026-05-12 — LLM scorer handles
+  // C2C/visa/bench/affiliate noise. See the SPAM_BODY_SIGNALS comment
+  // block above for full reasoning.)
 
   // Check post content for explicit excluded location phrases. When the
   // post ALSO has a strong target-region anchor in body (e.g. "remote in
@@ -619,36 +540,24 @@ export function quickIntentFilter(content: string, headline: string = ""): { pas
   const hasGenAI = genaiSignals.some((s) => lower.includes(s));
   if (isMLOnly && !hasGenAI) return { pass: false, reason: "ml-only-not-genai" };
 
-  // HARD reject: any hybrid wording. Per direction, we do NOT accept
-  // hybrid roles even if the rest of the post screams "remote-friendly".
-  // This gate runs before the onsite gate so it can't be overridden.
+  // Hybrid + onsite: reject UNLESS the post mentions "remote" anywhere.
+  //
+  // 2026-05-12: matches lead-magnet's permissive logic. Previously
+  // (04-29 round 2) hybrid was a hard reject with no override and
+  // onsite required explicit "fully remote"/"100% remote"/etc. — that
+  // gate produced too many false-rejects on real contract posts that
+  // said "remote-friendly" or "remote-optional". The LLM scorer (gated
+  // at ≥20) penalises actual hybrid/onsite intent regardless.
   const hasHybrid = HYBRID_SIGNALS.some((s) => lower.includes(s));
-  if (hasHybrid) return { pass: false, reason: "hybrid-role" };
-
-  // Hard reject: on-site role. "remote" alone isn't strong enough — many
-  // posts say "remote-friendly" while still being effectively on-site.
-  // Override threshold: explicit strong-remote signal must be present.
   const hasOnsite = ONSITE_SIGNALS.some((s) => lower.includes(s));
-  const hasStrongRemote =
-    lower.includes("fully remote") ||
-    lower.includes("100% remote") ||
-    lower.includes("100 percent remote") ||
-    lower.includes("remote-first") ||
-    lower.includes("remote first") ||
-    lower.includes("remote only") ||
-    lower.includes("remote-only") ||
-    lower.includes("work from anywhere") ||
-    lower.includes("anywhere in the world") ||
-    lower.includes("anywhere in the us") ||
-    lower.includes("anywhere in europe") ||
-    lower.includes("anywhere in the eu");
-  if (hasOnsite && !hasStrongRemote) {
-    return { pass: false, reason: "onsite-role" };
+  const hasRemote = lower.includes("remote");
+  if ((hasHybrid || hasOnsite) && !hasRemote) {
+    return { pass: false, reason: hasHybrid ? "hybrid-role" : "onsite-role" };
   }
 
   // Hard reject: explicit physical location pinned (📍 Location: City, ST)
-  // without a strong remote signal.
-  if (LOCATION_PIN_REGEX.test(content) && !hasStrongRemote) {
+  // without "remote" anywhere in body.
+  if (LOCATION_PIN_REGEX.test(content) && !hasRemote) {
     return { pass: false, reason: "location-pinned-no-remote" };
   }
 
