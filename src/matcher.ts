@@ -97,17 +97,88 @@ export async function runScorer(
         adjustedReasoning = `[AUTO-APPROVE] ${hybridAnalysis.reason}. ${parsed.reasoning}`;
       }
 
-      const total =
+      const rawTotal =
         parsed.relevance +
         adjustedFit +
         parsed.urgency +
         parsed.engagementPotential;
 
+      // Tag-aware deterministic score adjustment.
+      //
+      // The LLM-produced rawTotal is a starting point. We then nudge it
+      // based on what classifyAuthor (run during scrape) wrote to
+      // contact_identities.metadata.tags. This makes the recruiter
+      // penalty hard-deterministic instead of relying on the LLM to
+      // re-interpret a prompt every single call.
+      //
+      // Penalties stack but the net adjustment is clamped to [-30, +15]
+      // so a single misclassification can't slam a real lead to 0.
+      const tags = await store.getAuthorTags(post.authorUrl);
+      let adjustment = 0;
+      const adjReasons: string[] = [];
+
+      if (tags.includes("staffing-firm")) {
+        adjustment -= 25;
+        adjReasons.push("staffing-firm:-25");
+      }
+      if (tags.includes("recruiter") && !tags.includes("target-fit")) {
+        adjustment -= 20;
+        adjReasons.push("recruiter:-20");
+      }
+      if (tags.includes("agency-founder")) {
+        adjustment -= 18;
+        adjReasons.push("agency-founder:-18");
+      }
+      if (tags.includes("low-engagement")) {
+        adjustment -= 10;
+        adjReasons.push("low-engagement:-10");
+      }
+      if (
+        tags.includes("company-page") &&
+        !tags.includes("ai-engineering")
+      ) {
+        adjustment -= 8;
+        adjReasons.push("generic-company:-8");
+      }
+
+      if (tags.includes("product-founder")) {
+        adjustment += 12;
+        adjReasons.push("product-founder:+12");
+      }
+      if (
+        tags.includes("founder") &&
+        tags.includes("target-fit") &&
+        !tags.includes("agency-founder")
+      ) {
+        adjustment += 10;
+        adjReasons.push("founder-target:+10");
+      }
+      if (tags.includes("executive") && tags.includes("target-fit")) {
+        adjustment += 10;
+        adjReasons.push("exec-target:+10");
+      }
+      if (
+        tags.includes("founder") &&
+        tags.includes("ai-engineering") &&
+        !tags.includes("agency-founder")
+      ) {
+        adjustment += 6;
+        adjReasons.push("founder-ai:+6");
+      }
+
+      adjustment = Math.max(-30, Math.min(15, adjustment));
+      const total = Math.max(0, Math.min(40, rawTotal + adjustment));
+      const tagReasoningSuffix =
+        adjReasons.length > 0
+          ? ` [raw=${rawTotal} adj=${adjustment >= 0 ? "+" : ""}${adjustment} tags=${adjReasons.join(",")}]`
+          : ` [raw=${rawTotal} adj=0]`;
+      const finalReasoning = adjustedReasoning + tagReasoningSuffix;
+
       const score: PostScore = {
         postId: post.id,
         ...parsed,
         fit: adjustedFit,
-        reasoning: adjustedReasoning,
+        reasoning: finalReasoning,
         total,
         scoredAt: new Date().toISOString(),
       };
@@ -122,6 +193,9 @@ export async function runScorer(
         payload: {
           postId: post.id,
           total,
+          rawTotal,
+          tagAdjustment: adjustment,
+          tagReasons: adjReasons,
           relevance: parsed.relevance,
           fit: adjustedFit,
           urgency: parsed.urgency,

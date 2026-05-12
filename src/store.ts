@@ -268,6 +268,45 @@ export class Store {
     `);
   }
 
+  /**
+   * Read the latest classification tags for an author from
+   * contact_identities.metadata.tags. Used by matcher.ts to deterministically
+   * adjust LLM-produced scores based on author-type (recruiter penalty,
+   * product-founder boost, etc.).
+   *
+   * Returns [] when the author has no contact_identities row yet (first
+   * time we're seeing them), or when their metadata.tags is missing.
+   * Returns [] on URL-parse failure.
+   *
+   * Mirrors the URL-parse logic in upsertContactFromPost so the same
+   * (platform, username) key is used for both the upsert and the read.
+   */
+  async getAuthorTags(authorUrl: string): Promise<string[]> {
+    if (!authorUrl) return [];
+    const m = authorUrl.match(
+      /linkedin\.com\/(in|company|showcase)\/([^/?#]+)/i,
+    );
+    if (!m) return [];
+    const kind = m[1].toLowerCase();
+    const platform =
+      kind === "in"
+        ? "linkedin"
+        : kind === "company"
+          ? "linkedin_company"
+          : "linkedin_showcase";
+    const username = decodeURIComponent(m[2]).toLowerCase().trim();
+    const row = (await db.execute(sql`
+      SELECT metadata
+      FROM contact_identities
+      WHERE platform = ${platform} AND username = ${username}
+      LIMIT 1
+    `)).rows[0] as { metadata: Record<string, unknown> | null } | undefined;
+    if (!row?.metadata) return [];
+    const tags = row.metadata.tags;
+    if (!Array.isArray(tags)) return [];
+    return tags.filter((t): t is string => typeof t === "string");
+  }
+
   async insertPost(post: ScrapedPost): Promise<boolean> {
     const inserted = await db
       .insert(schema.posts)

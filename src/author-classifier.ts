@@ -194,6 +194,45 @@ export function classifyAuthor(
   ];
   if (spamHints.some((h) => body.includes(h))) tags.add("spam-signals");
 
+  // ── Agency-founder vs product-founder distinction (2026-05-12) ──
+  //
+  // Empirically every "founder"-tagged author in our 14-day high-score
+  // pool turned out to be a founder of a staffing/recruitment/agency
+  // company, NOT a product-company founder. Headline alone is too coarse
+  // — we need to split based on company-type signals from name + body.
+  //
+  // Runs only when primaryRole is founder/business-owner (the roles
+  // where "founder" tag is ambiguous between buyer and intermediary).
+  const AGENCY_COMPANY_HINTS = [
+    "staffing", "talent", "recruitment", "recruiter", "infotech",
+    "tech labs", "resourcing", "placements", "consulting services",
+    "tech talent", "tech solutions", "it services", "gigs",
+    "freelance hub", "remote jobs", "job board", "job curator",
+    "tech sourcing", "headhunt",
+  ];
+  const PRODUCT_COMPANY_HINTS = [
+    "saas", "platform", " .io", ".com", ".ai", "app", "our product",
+    "our app", "our platform", "we built", "we shipped",
+    "building a saas", "running a saas", "our startup",
+  ];
+  if (primaryRole === "founder" || primaryRole === "business-owner") {
+    // Agency hint sources: name (e.g. "ViVA Tech Talent"), headline (e.g.
+    // "MD @ X Staffing"), AND body (e.g. "we are a staffing firm",
+    // "our agency places engineers"). Body inclusion catches founders
+    // whose headline doesn't directly say agency but whose post text
+    // self-identifies the company as one.
+    const looksAgency =
+      AGENCY_COMPANY_HINTS.some(
+        (h) => name.includes(h) || headline.includes(h) || body.includes(h),
+      );
+    const looksProduct =
+      PRODUCT_COMPANY_HINTS.some(
+        (h) => body.includes(h) || headline.includes(h),
+      );
+    if (looksAgency && !looksProduct) tags.add("agency-founder");
+    if (looksProduct && !looksAgency) tags.add("product-founder");
+  }
+
   // ── Composite quality assessment ──
 
   // Wrong-niche — has a strong non-AI engineering signal AND no AI signal
@@ -204,9 +243,14 @@ export function classifyAuthor(
   }
 
   // Target-fit — founder/exec + AI engineering signal in body content
-  // (founder posts often don't list "AI" in headline but do in body)
+  // (founder posts often don't list "AI" in headline but do in body).
+  // Agency-founders are explicitly excluded — they're middlemen, not buyers.
   const aiContentHint = /\b(ai engineer|ml engineer|llm|rag pipeline|generative ai|ai automation|chatbot|agent)\b/.test(body);
-  if ((primaryRole === "founder" || primaryRole === "executive") && aiContentHint) {
+  if (
+    (primaryRole === "founder" || primaryRole === "executive") &&
+    aiContentHint &&
+    !tags.has("agency-founder")
+  ) {
     tags.add("target-fit");
   }
 
@@ -218,6 +262,7 @@ export function classifyAuthor(
     tags.has("intern") ||
     (tags.has("recruiter") && !tags.has("target-fit")) ||
     tags.has("staffing-firm") ||
+    tags.has("agency-founder") ||
     tags.has("low-engagement") ||
     tags.has("non-english") ||
     (tags.has("wrong-niche") && !tags.has("target-fit"));

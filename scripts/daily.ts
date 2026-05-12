@@ -44,14 +44,22 @@ function parseFlags(): {
   skipScore: boolean;
   skipBatch: boolean;
   skipGenerate: boolean;
+  maxPosts: number | null;
 } {
   const argv = process.argv.slice(2);
+  const maxPostsIdx = argv.indexOf("--max-posts");
+  let maxPosts: number | null = null;
+  if (maxPostsIdx >= 0 && maxPostsIdx + 1 < argv.length) {
+    const parsed = parseInt(argv[maxPostsIdx + 1], 10);
+    if (Number.isFinite(parsed) && parsed > 0) maxPosts = parsed;
+  }
   return {
     dryRun: argv.includes("--dry-run"),
     skipScrape: argv.includes("--skip-scrape"),
     skipScore: argv.includes("--skip-score"),
     skipBatch: argv.includes("--skip-batch"),
     skipGenerate: argv.includes("--skip-generate"),
+    maxPosts,
   };
 }
 
@@ -190,10 +198,20 @@ async function main(): Promise<void> {
       skipScore: flags.skipScore,
       skipBatch: flags.skipBatch,
       skipGenerate: flags.skipGenerate,
+      maxPosts: flags.maxPosts,
     },
   });
 
   const config = loadConfig();
+  // --max-posts N overrides DAILY_SCRAPE_CAP for this run only. Used for
+  // controlled tests (e.g. 100-post validation runs after filter/prompt
+  // changes) without permanently touching the env-driven cap.
+  if (flags.maxPosts !== null) {
+    console.log(
+      `  [override] DAILY_SCRAPE_CAP ${config.dailyScrapeCap} → ${flags.maxPosts} (--max-posts)`,
+    );
+    config.dailyScrapeCap = flags.maxPosts;
+  }
   const store = new Store();
   const stageResults: StageResult[] = [];
   type BatchSummary = { batchId: string; assigned: number; closed: string | null };
