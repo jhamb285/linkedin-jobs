@@ -751,6 +751,55 @@ export async function runScraper(config: AppConfig, store: Store): Promise<void>
   const maxResults = parseInt(process.env.MAX_RESULTS || "15", 10);
   const activeQueries = queries.slice(0, maxQueries);
 
+  // Reweight per-query budget by historical Approval% (high-score / fetched
+  // over the last 30 days). Total keyword budget is preserved; allocation
+  // shifts toward queries that have surfaced buyers in the past. 30% of the
+  // budget is split evenly (floor for new/cold queries); 70% is distributed
+  // by approvalPct so a 5%-yield query gets ~5× the allocation of a 1%-yield
+  // query at the same configured size. Profile-watch queries are exempt —
+  // their maxResults is the rotation slice size, not a fetch budget.
+  // Disable via REWEIGHT=0.
+  if (process.env.REWEIGHT !== "0") {
+    try {
+      const stats = await store.getQueryApprovalStats(30);
+      const statsByQuery = new Map(stats.map((s) => [s.query, s]));
+      const keywordQueries = activeQueries.filter(
+        (q) => q.mode !== "profile-watch",
+      );
+      const keywordBudget = keywordQueries.reduce(
+        (s, q) => s + (q.maxResults ?? maxResults),
+        0,
+      );
+      const baseShare = 0.3;
+      const bonusShare = 0.7;
+      const baseBudgetPerQuery =
+        (keywordBudget * baseShare) / Math.max(1, keywordQueries.length);
+      const totalApproval = keywordQueries.reduce(
+        (s, q) => s + (statsByQuery.get(q.query)?.approvalPct ?? 0.05),
+        0,
+      );
+      for (const q of keywordQueries) {
+        const apr = statsByQuery.get(q.query)?.approvalPct ?? 0.05;
+        const bonusBudget =
+          (keywordBudget * bonusShare * apr) / Math.max(0.001, totalApproval);
+        q.maxResults = Math.max(2, Math.round(baseBudgetPerQuery + bonusBudget));
+      }
+      console.log("[reweight] Per-query maxResults after Approval%-weighting:");
+      for (const q of activeQueries) {
+        const s = statsByQuery.get(q.query);
+        const pct = s ? (s.approvalPct * 100).toFixed(1) : "  - ";
+        const tag = q.mode === "profile-watch" ? " [profile-watch, fixed]" : "";
+        console.log(
+          `  ${String(q.maxResults ?? maxResults).padStart(3)}  ${pct.padStart(5)}%  ${q.query.slice(0, 60)}${tag}`,
+        );
+      }
+    } catch (err) {
+      console.warn(
+        `[reweight] Failed to compute approval stats, falling back to configured maxResults: ${(err as Error).message}`,
+      );
+    }
+  }
+
   // Daily hard cap on fetched items (Apify bills per fetched item).
   const cap = config.dailyScrapeCap;
   const todayAlready = await store.getTodayScrapeFetched();
@@ -831,29 +880,48 @@ export async function runScraper(config: AppConfig, store: Store): Promise<void>
     };
 
     try {
-      // harvestapi: searchQueries array + maxPosts + sortBy:"date" + postedLimitDate.
-      // We use postedLimitDate (ISO 48h ago) instead of postedLimit:"week"
-      // for a deterministic 48h window — LinkedIn's "week" bucket is
-      // looser and pulls in stale posts.
-      // Legacy apimaestro used keyword + limit + postedLimitDate.
-      const isHarvestApi = config.apifyActorId.startsWith("harvestapi/");
-      const actorInput = isHarvestApi
-        ? {
-            searchQueries: [q.query],
-            maxPosts: resultLimit,
-            sortBy: "date",
-            postedLimitDate: dateCutoff,
-          }
-        : {
-            keyword: q.query,
-            limit: resultLimit,
-            sortBy: "date_posted",
-            postedLimitDate: dateCutoff,
-          };
+      let items: unknown[];
+      if (q.mode === "profile-watch") {
+        // Profile-watch bucket — pull rotating product-founder URLs and
+        // call the profile-posts actor. Per-profile posts cap is `maxPosts`;
+        // empirically the actor returns ~2-4 items per profile, plus a few
+        // reposts/comments by associated authors.
+        const profileUrls = await store.getFreshFoundersForWatch(resultLimit);
+        if (profileUrls.length === 0) {
+          console.log(`  [${q.group}] No founders to watch — skipping.`);
+          items = [];
+        } else {
+          const run = await client
+            .actor("harvestapi/linkedin-profile-posts")
+            .call({ profileUrls, maxPosts: 2 });
+          ({ items } = await client.dataset(run.defaultDatasetId).listItems());
+          actorRuns++;
+        }
+      } else {
+        // harvestapi: searchQueries array + maxPosts + sortBy:"date" + postedLimitDate.
+        // We use postedLimitDate (ISO 48h ago) instead of postedLimit:"week"
+        // for a deterministic 48h window — LinkedIn's "week" bucket is
+        // looser and pulls in stale posts.
+        // Legacy apimaestro used keyword + limit + postedLimitDate.
+        const isHarvestApi = config.apifyActorId.startsWith("harvestapi/");
+        const actorInput = isHarvestApi
+          ? {
+              searchQueries: [q.query],
+              maxPosts: resultLimit,
+              sortBy: "date",
+              postedLimitDate: dateCutoff,
+            }
+          : {
+              keyword: q.query,
+              limit: resultLimit,
+              sortBy: "date_posted",
+              postedLimitDate: dateCutoff,
+            };
 
-      const run = await client.actor(config.apifyActorId).call(actorInput);
-      const { items } = await client.dataset(run.defaultDatasetId).listItems();
-      actorRuns++;
+        const run = await client.actor(config.apifyActorId).call(actorInput);
+        ({ items } = await client.dataset(run.defaultDatasetId).listItems());
+        actorRuns++;
+      }
       fetchedThisRun += items.length;
       queryCounts.fetched = items.length;
 

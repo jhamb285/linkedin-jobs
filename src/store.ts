@@ -1015,6 +1015,71 @@ export class Store {
       .where(eq(schema.scrapeRunQueries.id, rowId));
   }
 
+  /**
+   * Rotating slice of product-founder profile URLs for Phase 3
+   * profile-watch scraping. Ordered by `last_seen_at` ASC so we rotate
+   * through the pool across days rather than re-pulling the same
+   * founders every run. Excludes agency-founders (staffing firms) and
+   * any contact whose profile_url is missing.
+   */
+  async getFreshFoundersForWatch(limit: number = 30): Promise<string[]> {
+    const rows = (await db.execute(sql`
+      SELECT profile_url
+        FROM contact_identities
+       WHERE platform = 'linkedin'
+         AND profile_url IS NOT NULL
+         AND profile_url <> ''
+         AND (
+           metadata->'tags' ? 'product-founder'
+           OR (
+             metadata->'tags' ? 'founder'
+             AND metadata->'tags' ? 'target-fit'
+           )
+         )
+         AND NOT (metadata->'tags' ? 'agency-founder')
+       ORDER BY last_seen_at ASC NULLS FIRST
+       LIMIT ${limit}
+    `)).rows as Array<{ profile_url: string }>;
+    return rows.map((r) => r.profile_url);
+  }
+
+  /**
+   * Per-query funnel stats over the last N days. Returns one row per
+   * distinct `query` string seen in `scrape_run_queries`, with the total
+   * `fetched` count and the count of high-score posts (scores.total >= 20)
+   * attributed to that query via `posts.query_used`. Used by the scraper
+   * to dynamically rebalance per-query budget toward proven performers.
+   */
+  async getQueryApprovalStats(lookbackDays: number = 30): Promise<
+    Array<{ query: string; fetched: number; qualified: number; approvalPct: number }>
+  > {
+    const rows = (await db.execute(sql`
+      WITH q AS (
+        SELECT query, sum(fetched)::int AS fetched
+          FROM scrape_run_queries
+         WHERE started_at >= now() - (${lookbackDays} || ' days')::interval
+         GROUP BY query
+      ),
+      h AS (
+        SELECT p.query_used AS query, count(*)::int AS qualified
+          FROM posts p
+          JOIN scores s ON s.post_id = p.id
+         WHERE s.total >= 20
+           AND p.scraped_at >= now() - (${lookbackDays} || ' days')::interval
+           AND p.query_used IS NOT NULL
+         GROUP BY p.query_used
+      )
+      SELECT q.query, q.fetched, coalesce(h.qualified, 0)::int AS qualified
+        FROM q LEFT JOIN h ON h.query = q.query
+    `)).rows as Array<{ query: string; fetched: number; qualified: number }>;
+    return rows.map((r) => ({
+      query: r.query,
+      fetched: r.fetched,
+      qualified: r.qualified,
+      approvalPct: r.fetched > 0 ? r.qualified / r.fetched : 0,
+    }));
+  }
+
   // ── Lead export feed (used by exporter.ts) ────────────────────────────
 
   async getLeadsForExport(_args: {

@@ -104,6 +104,10 @@ export interface SearchQuery {
   maxResults?: number;
   tier?: 1 | 2 | 3;
   note?: string;
+  /** "keyword" (default) = call linkedin-post-search with `query`.
+   *  "profile-watch" = ignore `query`, call linkedin-profile-posts with
+   *  rotating product-founder profile URLs from getFreshFoundersForWatch. */
+  mode?: "keyword" | "profile-watch";
 }
 
 export interface AppConfig {
