@@ -774,12 +774,20 @@ export async function runScraper(config: AppConfig, store: Store): Promise<void>
       const bonusShare = 0.7;
       const baseBudgetPerQuery =
         (keywordBudget * baseShare) / Math.max(1, keywordQueries.length);
+      // Effective approvalPct: use the historical signal only when we have
+      // at least one scored post for that query. Otherwise fall back to the
+      // neutral default (0.05). This keeps a temporary scoring outage from
+      // flagging new queries as "0% approval".
+      const effectiveApr = (q: { query: string }): number => {
+        const s = statsByQuery.get(q.query);
+        return s && s.scored > 0 ? s.approvalPct : 0.05;
+      };
       const totalApproval = keywordQueries.reduce(
-        (s, q) => s + (statsByQuery.get(q.query)?.approvalPct ?? 0.05),
+        (s, q) => s + effectiveApr(q),
         0,
       );
       for (const q of keywordQueries) {
-        const apr = statsByQuery.get(q.query)?.approvalPct ?? 0.05;
+        const apr = effectiveApr(q);
         const bonusBudget =
           (keywordBudget * bonusShare * apr) / Math.max(0.001, totalApproval);
         q.maxResults = Math.max(2, Math.round(baseBudgetPerQuery + bonusBudget));
@@ -787,7 +795,8 @@ export async function runScraper(config: AppConfig, store: Store): Promise<void>
       console.log("[reweight] Per-query maxResults after Approval%-weighting:");
       for (const q of activeQueries) {
         const s = statsByQuery.get(q.query);
-        const pct = s ? (s.approvalPct * 100).toFixed(1) : "  - ";
+        const pct =
+          s && s.scored > 0 ? (s.approvalPct * 100).toFixed(1) : "  - ";
         const tag = q.mode === "profile-watch" ? " [profile-watch, fixed]" : "";
         console.log(
           `  ${String(q.maxResults ?? maxResults).padStart(3)}  ${pct.padStart(5)}%  ${q.query.slice(0, 60)}${tag}`,

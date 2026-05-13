@@ -1045,13 +1045,24 @@ export class Store {
 
   /**
    * Per-query funnel stats over the last N days. Returns one row per
-   * distinct `query` string seen in `scrape_run_queries`, with the total
-   * `fetched` count and the count of high-score posts (scores.total >= 20)
-   * attributed to that query via `posts.query_used`. Used by the scraper
-   * to dynamically rebalance per-query budget toward proven performers.
+   * distinct `query` string seen in `scrape_run_queries`, with:
+   *   - fetched: total posts pulled by Apify for this query
+   *   - scored: subset of fetched that survived filters + got a score row
+   *   - qualified: subset of scored with total >= 20 (high-score)
+   *   - approvalPct: qualified / scored (NOT qualified / fetched — this
+   *     way a temporary scoring outage doesn't make a query look "bad").
+   *     Queries with 0 scored posts get the default fallback in scraper.ts.
+   * Used by the scraper to dynamically rebalance per-query budget toward
+   * proven performers.
    */
   async getQueryApprovalStats(lookbackDays: number = 30): Promise<
-    Array<{ query: string; fetched: number; qualified: number; approvalPct: number }>
+    Array<{
+      query: string;
+      fetched: number;
+      scored: number;
+      qualified: number;
+      approvalPct: number;
+    }>
   > {
     const rows = (await db.execute(sql`
       WITH q AS (
@@ -1059,6 +1070,14 @@ export class Store {
           FROM scrape_run_queries
          WHERE started_at >= now() - (${lookbackDays} || ' days')::interval
          GROUP BY query
+      ),
+      sc AS (
+        SELECT p.query_used AS query, count(*)::int AS scored
+          FROM posts p
+          JOIN scores s ON s.post_id = p.id
+         WHERE p.scraped_at >= now() - (${lookbackDays} || ' days')::interval
+           AND p.query_used IS NOT NULL
+         GROUP BY p.query_used
       ),
       h AS (
         SELECT p.query_used AS query, count(*)::int AS qualified
@@ -1069,14 +1088,26 @@ export class Store {
            AND p.query_used IS NOT NULL
          GROUP BY p.query_used
       )
-      SELECT q.query, q.fetched, coalesce(h.qualified, 0)::int AS qualified
-        FROM q LEFT JOIN h ON h.query = q.query
-    `)).rows as Array<{ query: string; fetched: number; qualified: number }>;
+      SELECT
+        q.query,
+        q.fetched,
+        coalesce(sc.scored, 0)::int AS scored,
+        coalesce(h.qualified, 0)::int AS qualified
+        FROM q
+        LEFT JOIN sc ON sc.query = q.query
+        LEFT JOIN h ON h.query = q.query
+    `)).rows as Array<{
+      query: string;
+      fetched: number;
+      scored: number;
+      qualified: number;
+    }>;
     return rows.map((r) => ({
       query: r.query,
       fetched: r.fetched,
+      scored: r.scored,
       qualified: r.qualified,
-      approvalPct: r.fetched > 0 ? r.qualified / r.fetched : 0,
+      approvalPct: r.scored > 0 ? r.qualified / r.scored : 0,
     }));
   }
 
