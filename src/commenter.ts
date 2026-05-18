@@ -55,6 +55,63 @@ function stripAtMentions(text: string | null): string | null {
   return text.replace(/(^|[^\w.])@(\w[\w.-]*)/g, (_m, before) => before);
 }
 
+// ---------------------------------------------------------------------------
+// RAG footer — appended to every comment / connection note / DM / email so
+// the prospect always has the founder's portfolio link to click through to.
+// Connection notes have a hard 300-char LinkedIn limit; we trim the LLM body
+// to fit the footer rather than dropping the URL.
+// ---------------------------------------------------------------------------
+
+function getRagUrl(persona: Persona): string | null {
+  const url =
+    persona === "pk"
+      ? process.env.RAG_BASE_URL_PK
+      : process.env.RAG_BASE_URL_AJ;
+  const trimmed = url?.trim();
+  return trimmed && trimmed.length > 0 ? trimmed : null;
+}
+
+function withRagFooter(
+  text: string,
+  persona: Persona,
+  opts: { separator?: string; maxLen?: number } = {},
+): string {
+  const url = getRagUrl(persona);
+  if (!url) return text;
+  const sep = opts.separator ?? "\n\n";
+  const footer = `${sep}More: ${url}`;
+  if (opts.maxLen === undefined) return text + footer;
+  if (text.length + footer.length <= opts.maxLen) return text + footer;
+  const room = Math.max(0, opts.maxLen - footer.length);
+  return text.slice(0, room).trimEnd() + footer;
+}
+
+function withRagFooterOpt(
+  text: string | null,
+  persona: Persona,
+  opts?: { separator?: string; maxLen?: number },
+): string | null {
+  if (!text) return text;
+  return withRagFooter(text, persona, opts);
+}
+
+function appendRagFooter(
+  content: SinglePersonaContent,
+  persona: Persona,
+): SinglePersonaContent {
+  return {
+    ...content,
+    comment: withRagFooter(content.comment, persona),
+    // LinkedIn caps connection notes at 300 chars — trim body to fit.
+    connectionNote: withRagFooter(content.connectionNote, persona, {
+      separator: "\n",
+      maxLen: 300,
+    }),
+    dm: withRagFooter(content.dm, persona),
+    email: withRagFooterOpt(content.email, persona),
+  };
+}
+
 function sanitize(content: SinglePersonaContent): SinglePersonaContent {
   return {
     ...content,
@@ -191,7 +248,9 @@ export async function runGenerator(
         continue;
       }
 
-      const sanitized = sanitize(parsed);
+      // sanitize first (strip @ mentions, etc.), THEN append RAG footer so
+      // the URL is never accidentally stripped by the mention-cleanup regex.
+      const sanitized = appendRagFooter(sanitize(parsed), persona);
 
       if (dryRun) {
         console.log(
