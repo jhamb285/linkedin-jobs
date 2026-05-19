@@ -190,11 +190,20 @@ export async function runScorer(
         adjReasons.push("generic-company:-8");
       }
 
-      if (tags.includes("product-founder")) {
+      // Positive tag boosts are gated on rawTotal >= 8 — the LLM has
+      // already vetted the post as not-REJECT. Otherwise a competitor /
+      // thought-leadership / promo post that happens to be authored by a
+      // product-founder gets its score rescued from 0 to 12+ by tags
+      // alone. Observed 2026-05-19 on re-score: 5 REJECT posts climbed
+      // back into the top-15 via product-founder:+12. The LLM's REJECT
+      // verdict must win.
+      const rawIsBuyer = rawTotal >= 8;
+      if (rawIsBuyer && tags.includes("product-founder")) {
         adjustment += 12;
         adjReasons.push("product-founder:+12");
       }
       if (
+        rawIsBuyer &&
         tags.includes("founder") &&
         tags.includes("target-fit") &&
         !tags.includes("agency-founder")
@@ -202,11 +211,16 @@ export async function runScorer(
         adjustment += 10;
         adjReasons.push("founder-target:+10");
       }
-      if (tags.includes("executive") && tags.includes("target-fit")) {
+      if (
+        rawIsBuyer &&
+        tags.includes("executive") &&
+        tags.includes("target-fit")
+      ) {
         adjustment += 10;
         adjReasons.push("exec-target:+10");
       }
       if (
+        rawIsBuyer &&
         tags.includes("founder") &&
         tags.includes("ai-engineering") &&
         !tags.includes("agency-founder")
@@ -223,18 +237,31 @@ export async function runScorer(
       // body has explicit hiring intent AND we don't have an
       // agency-founder tag, push the score up significantly — these
       // are the easiest contracts to close.
-      const HIRING_INTENT = [
+      // Hiring-intent is stronger when multiple distinct phrases hit.
+      // Single "needed" alone over-triggered (Andrew G. thought-leader
+      // post got +12). Require ≥2 distinct matches OR an explicit
+      // role-title hiring phrase. Also gate on rawIsBuyer (LLM already
+      // judges it's a real hire) so a 0-rated REJECT can't be rescued.
+      const HIRING_INTENT_STRONG = [
         "we are looking for", "i'm looking for", "i am looking for",
         "i need a", "we need a", "hiring a", "we're hiring",
         "i'm hiring", "looking to hire", "want to hire",
         "freelance developer", "contract developer",
         "looking for a developer", "looking for someone",
-        "needed", "needed –", "needed -", "needed —",
       ];
-      const hasHiringIntent = HIRING_INTENT.some((p) => bodyLower.includes(p));
+      const HIRING_INTENT_WEAK = [
+        "needed", "wanted ", "open role", "open position",
+        "freelancer needed", "developer needed",
+      ];
+      const strongHits = HIRING_INTENT_STRONG.filter((p) => bodyLower.includes(p)).length;
+      const weakHits = HIRING_INTENT_WEAK.filter((p) => bodyLower.includes(p)).length;
+      // Strong signal: at least one phrase that explicitly says hiring.
+      // Or two weak phrases combined (e.g. "developer needed" + "open role").
+      const hasHiringIntent = strongHits >= 1 || weakHits >= 2;
       const isFounderOrExec =
         tags.includes("founder") || tags.includes("executive");
       if (
+        rawIsBuyer &&
         isFounderOrExec &&
         hasHiringIntent &&
         !tags.includes("agency-founder") &&

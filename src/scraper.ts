@@ -385,9 +385,23 @@ export function checkLocation(
   const contentLower = postContent.toLowerCase();
   const authorNameLower = authorName.toLowerCase();
 
-  // Reject non-English posts (Arabic, Chinese, Hindi, Urdu, Thai, etc.)
-  // We only target English-speaking markets, so non-Latin scripts are likely from excluded regions
-  const nonLatinCount = (postContent.match(/[\u0600-\u06FF\u0900-\u097F\u4E00-\u9FFF\u3040-\u309F\u30A0-\u30FF\u0E00-\u0E7F]/g) || []).length;
+  // Reject non-English posts. Script coverage:
+  //   Arabic (0600-06FF)         Hebrew (0590-05FF)
+  //   Devanagari/Hindi (0900-097F)  Bengali (0980-09FF)
+  //   Punjabi/Gurmukhi (0A00-0A7F)  Gujarati (0A80-0AFF)
+  //   Tamil (0B80-0BFF)            Telugu (0C00-0C7F)
+  //   Kannada (0C80-0CFF)          Malayalam (0D00-0D7F)
+  //   Sinhala (0D80-0DFF)          Thai (0E00-0E7F)
+  //   CJK Unified (4E00-9FFF)      Hiragana/Katakana (3040-30FF)
+  //   Hangul (AC00-D7AF)           Greek (0370-03FF)
+  //   Cyrillic (0400-04FF)
+  // 2026-05-19 expanded after a Bengali competitor post + Hebrew job
+  // post + German+Spanish foreign-Latin posts scored highly.
+  const nonLatinCount = (
+    postContent.match(
+      /[\u0590-\u05FF\u0600-\u06FF\u0900-\u097F\u0980-\u09FF\u0A00-\u0A7F\u0A80-\u0AFF\u0B80-\u0BFF\u0C00-\u0C7F\u0C80-\u0CFF\u0D00-\u0D7F\u0D80-\u0DFF\u0E00-\u0E7F\u4E00-\u9FFF\u3040-\u309F\u30A0-\u30FF\uAC00-\uD7AF\u0370-\u03FF\u0400-\u04FF]/g,
+    ) || []
+  ).length;
   if (nonLatinCount > 10) {
     return { pass: false, reason: "non-english-content" };
   }
