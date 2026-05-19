@@ -331,7 +331,19 @@ export class Store {
           ? { detected_email: post.detectedEmail }
           : null,
       })
-      .onConflictDoNothing({ target: schema.posts.url })
+      // onConflictDoUpdate (not DoNothing) so a re-scrape that finally
+      // detects an email backfills metadata.detected_email on rows that
+      // were inserted before detectEmail was wired. content also
+      // refreshed in case article-fetch surfaces a longer body on the
+      // second pass.
+      .onConflictDoUpdate({
+        target: schema.posts.url,
+        set: {
+          content: sql`COALESCE(excluded.content, ${schema.posts.content})`,
+          metadata: sql`COALESCE(${schema.posts.metadata}, '{}'::jsonb)
+            || COALESCE(excluded.metadata, '{}'::jsonb)`,
+        },
+      })
       .returning({ id: schema.posts.id });
 
     if (inserted.length > 0) {
