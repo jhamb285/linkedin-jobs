@@ -244,8 +244,26 @@ export async function runGenerator(
     const detectedEmail =
       (lead as ScrapedPost & { detectedEmail?: string | null }).detectedEmail ??
       null;
+    // Detect the CTA the post owner is asking for. We tailor the email
+    // opener to that CTA when present so the reply doesn't read like a
+    // generic cold pitch — the operator is responding to a posted
+    // request. Falls back to a peer-to-peer voice when no CTA matches.
+    const bodyLower = lead.content.toLowerCase();
+    let ctaInstruction = "";
+    if (detectedEmail) {
+      if (/(share|send|mail|drop|forward).{0,30}(your |updated )?(cv|resume|profile)/i.test(lead.content)) {
+        ctaInstruction = `\nThe post requests CVs / resumes / profiles. Open with one short line referencing this ("Per your post, sending my profile…"); the attached CV will be added by the operator. Close with a 1-line CTA to hop on a 15-min call ${persona === "pk" ? "(par1kahl.kronus.tech)" : "(arpit.kronus.tech)"} so they can see prior work.`;
+      } else if (/(apply|application|interested candidates).{0,30}(at|to|via|here)/i.test(lead.content)) {
+        ctaInstruction = `\nThe post is an "apply at <email>" job listing. Open with one short line referencing the role and signaling fit. Close with a 1-line CTA to hop on a 15-min call ${persona === "pk" ? "(par1kahl.kronus.tech)" : "(arpit.kronus.tech)"} before any formal application.`;
+      } else if (/(dm|reach out|get in touch|contact|reply).{0,30}(me|us|at|to)/i.test(lead.content)) {
+        ctaInstruction = `\nThe post asks people to DM / reach out. Treat this email as that outreach. Open by referencing the post topic + one specific detail. Close with a 1-line CTA to hop on a 15-min call ${persona === "pk" ? "(par1kahl.kronus.tech)" : "(arpit.kronus.tech)"}.`;
+      } else {
+        ctaInstruction = `\nClose the email with a 1-line CTA to hop on a 15-min call ${persona === "pk" ? "(par1kahl.kronus.tech)" : "(arpit.kronus.tech)"}.`;
+      }
+    }
+    void bodyLower; // currently only used implicitly through the regexes above
     const emailDirective = detectedEmail
-      ? `\n\n## EMAIL REQUIRED\nThe post contains the email "${detectedEmail}". You MUST produce a non-empty email + emailSubject in your response. Address the email to ${lead.author_name} at that address. Keep the email peer-to-peer, ≤180 words, with the same persona voice as the comment.`
+      ? `\n\n## EMAIL REQUIRED\nThe post contains the email "${detectedEmail}". You MUST produce a non-empty email + emailSubject in your response. Address the email to ${lead.author_name} at that address. Keep the email peer-to-peer, ≤180 words, with the same persona voice as the comment.${ctaInstruction}`
       : "";
 
     const prompt =
