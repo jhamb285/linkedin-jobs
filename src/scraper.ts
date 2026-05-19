@@ -959,18 +959,23 @@ export async function runScraper(config: AppConfig, store: Store): Promise<void>
           actorRuns++;
         }
       } else {
-        // harvestapi: searchQueries array + maxPosts + sortBy:"date" + postedLimitDate.
-        // We use postedLimitDate (ISO 48h ago) instead of postedLimit:"week"
-        // for a deterministic 48h window — LinkedIn's "week" bucket is
-        // looser and pulls in stale posts.
-        // Legacy apimaestro used keyword + limit + postedLimitDate.
+        // harvestapi: mirrors lead-magnet's working pattern exactly —
+        //   searchQueries: [<one query>]
+        //   maxPosts:      <per-query budget>
+        //   sortBy:        "date"
+        //   postedLimit:   "week"
+        // The "week" bucket is intentionally looser than a strict 48h
+        // date cutoff — the local isRecentPost(postedAt, 48) check at
+        // line ~945 trims anything actually >48h. This pattern is what
+        // produces fresh leads consistently in lead-magnet.
+        // Legacy apimaestro path kept for back-compat.
         const isHarvestApi = config.apifyActorId.startsWith("harvestapi/");
         const actorInput = isHarvestApi
           ? {
               searchQueries: [q.query],
               maxPosts: resultLimit,
               sortBy: "date",
-              postedLimitDate: dateCutoff,
+              postedLimit: "week",
             }
           : {
               keyword: q.query,
