@@ -14,6 +14,7 @@ We want **contract / freelance / consulting roles** in developed countries (US, 
 - Roles physically located in India (IST hours, INR/lakh/LPA pay, "in India" location = reject)
 - Pure thought-leadership / promo / newsletter posts (no engagement opportunity)
 - Posts from competitors (other AI consultants / AI agencies offering services)
+- **Founder product-launch / progress / milestone posts WITHOUT explicit hiring intent.** Even when the post mentions AI agents / RAG / production deployment, a Founder writing "we shipped X" / "we launched Y" / "our pilot customer uses it" / "we built Z" is a marketing post. There's no hire and no engagement path — the author is a peer or competitor (they already built the system you'd offer to build). relevance ≤ 3, engagementPotential = 0.
 
 ## Buyer / Recruiter / Direct-hire — UPDATED 2026-05-19
 

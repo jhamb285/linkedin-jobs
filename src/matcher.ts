@@ -190,20 +190,61 @@ export async function runScorer(
         adjReasons.push("generic-company:-8");
       }
 
-      // Positive tag boosts are gated on rawTotal >= 8 — the LLM has
-      // already vetted the post as not-REJECT. Otherwise a competitor /
-      // thought-leadership / promo post that happens to be authored by a
-      // product-founder gets its score rescued from 0 to 12+ by tags
-      // alone. Observed 2026-05-19 on re-score: 5 REJECT posts climbed
-      // back into the top-15 via product-founder:+12. The LLM's REJECT
-      // verdict must win.
-      const rawIsBuyer = rawTotal >= 8;
-      if (rawIsBuyer && tags.includes("product-founder")) {
+      // Positive tag boosts are double-gated:
+      //   1. rawTotal >= 8 (LLM didn't say REJECT)
+      //   2. body shows actual hiring/engagement intent
+      //
+      // Without the hiring-intent gate, "founder shipping a product
+      // update" posts get +22 even though they're not buyers. Example
+      // (2026-05-19): David Galvin (Founder @MedProAI) wrote a
+      // product-launch story ("we shipped our patient summary feature,
+      // pilot practice uses it now"); LLM gave raw=33 because the post
+      // mentions a "specific AI agent in production". tags=product-
+      // founder + founder-target stacked to +22 → final 40/40. He's a
+      // competitor in medical AI, not a client, and there's no hire
+      // here. The boosts must require a hire/engagement signal in the
+      // body.
+      const HIRING_OR_ENGAGEMENT_INTENT = [
+        // Direct hire wording
+        "we are looking for", "i'm looking for", "i am looking for",
+        "i need a", "we need a", "hiring a", "we're hiring",
+        "i'm hiring", "looking to hire", "want to hire",
+        "open role", "open position", "open roles", "we have a role",
+        // Contract/freelance scope wording
+        "freelance developer", "contract developer", "consulting engagement",
+        "freelancer needed", "developer needed", "engineer needed",
+        "looking for a developer", "looking for someone", "looking for help",
+        "looking for a freelancer", "looking for a contractor",
+        // Problem/help asks
+        "need help with", "need advice on", "anyone know how",
+        "recommendations for", "anyone built", "anyone worked with",
+        "struggling with", "stuck on", "any ideas on",
+      ];
+      const bodyHasHireOrEngage = HIRING_OR_ENGAGEMENT_INTENT.some((p) =>
+        bodyLower.includes(p),
+      );
+      // Product-update tells: "we shipped / launched / built / released"
+      // without any hire/engage signal = founder bragging, not buying.
+      const PRODUCT_UPDATE_SIGNALS = [
+        "we shipped", "we just shipped", "just shipped",
+        "we launched", "we just launched", "just launched",
+        "we released", "we built", "we just built",
+        "we rolled out", "we rolled this out",
+        "our new product", "introducing our",
+      ];
+      const looksProductUpdate =
+        PRODUCT_UPDATE_SIGNALS.some((p) => bodyLower.includes(p)) &&
+        !bodyHasHireOrEngage;
+
+      const rawIsBuyer = rawTotal >= 8 && !looksProductUpdate;
+      const canBoostFounder = rawIsBuyer && bodyHasHireOrEngage;
+
+      if (canBoostFounder && tags.includes("product-founder")) {
         adjustment += 12;
         adjReasons.push("product-founder:+12");
       }
       if (
-        rawIsBuyer &&
+        canBoostFounder &&
         tags.includes("founder") &&
         tags.includes("target-fit") &&
         !tags.includes("agency-founder")
@@ -212,7 +253,7 @@ export async function runScorer(
         adjReasons.push("founder-target:+10");
       }
       if (
-        rawIsBuyer &&
+        canBoostFounder &&
         tags.includes("executive") &&
         tags.includes("target-fit")
       ) {
@@ -220,13 +261,16 @@ export async function runScorer(
         adjReasons.push("exec-target:+10");
       }
       if (
-        rawIsBuyer &&
+        canBoostFounder &&
         tags.includes("founder") &&
         tags.includes("ai-engineering") &&
         !tags.includes("agency-founder")
       ) {
         adjustment += 6;
         adjReasons.push("founder-ai:+6");
+      }
+      if (looksProductUpdate) {
+        adjReasons.push("product-update:skip-boosts");
       }
 
       // CEO / Founder direct-hire boost.
