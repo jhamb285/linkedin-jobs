@@ -1,26 +1,150 @@
 [
-  {"group": "B4", "tier": 1, "maxResults": 30, "mode": "profile-watch", "query": "<profile-watch:product-founders>", "note": "B4 — rotating product-founder profile watch (30 founders × ~2 posts each)"},
-
-  {"group": "B2", "tier": 1, "maxResults": 12, "query": "\"our rag\" \"accuracy\" OR \"our rag\" \"slow\" -recruiter -staffing -c2c -resume", "note": "B2 — founder owns a RAG system, problem statement"},
-  {"group": "B2", "tier": 1, "maxResults": 12, "query": "\"our chatbot\" \"production\" OR \"our chatbot\" \"hallucinating\" -recruiter -c2c", "note": "B2 — founder owns a chatbot, problem statement"},
-  {"group": "B2", "tier": 1, "maxResults": 12, "query": "\"struggling with\" \"llm\" OR \"struggling with\" \"rag\" -recruiter -staffing -c2c", "note": "B2 — explicit problem confession (rare buyer signal)"},
-  {"group": "B2", "tier": 1, "maxResults": 12, "query": "\"we built\" \"ai agent\" OR \"we shipped\" \"ai agent\" -recruiter -staffing -c2c", "note": "B2 — shipped product, ownership signal"},
-  {"group": "B2", "tier": 1, "maxResults": 12, "query": "\"founder\" \"looking for help\" \"ai\" -recruiter -staffing -c2c -resume", "note": "B2 — explicit founder + ask"},
-  {"group": "B2", "tier": 1, "maxResults": 12, "query": "\"cto\" \"scaling\" \"ai\" OR \"cto\" \"ai\" \"production\" -recruiter -staffing -c2c", "note": "B2 — technical leader scaling AI"},
-  {"group": "B2", "tier": 1, "maxResults": 12, "query": "\"need someone to build\" \"ai feature\" OR \"need to build\" \"rag\" -recruiter", "note": "B2 — scope-defined buyer ask"},
-  {"group": "B2", "tier": 1, "maxResults": 12, "query": "\"our llm\" \"cost\" OR \"our llm\" \"expensive\" -recruiter -staffing -c2c -resume", "note": "B2 — production cost pain"},
-  {"group": "B2", "tier": 1, "maxResults": 12, "query": "\"can someone help\" \"rag\" OR \"can someone help\" \"agent\" -recruiter -c2c", "note": "B2 — direct help-ask"},
-  {"group": "B2", "tier": 1, "maxResults": 12, "query": "\"founder\" \"saas\" \"ai feature\" -recruiter -staffing -c2c -resume", "note": "B2 — SaaS founder shipping AI"},
-
-  {"group": "B3", "tier": 2, "maxResults": 10, "query": "\"i'm a founder\" \"ai\" -recruiter -staffing -c2c -resume", "note": "B3 — first-person founder voice"},
-  {"group": "B3", "tier": 2, "maxResults": 10, "query": "\"as a founder\" \"ai\" OR \"as a cto\" \"ai\" -recruiter -staffing -c2c -resume", "note": "B3 — first-person identity"},
-  {"group": "B3", "tier": 2, "maxResults": 10, "query": "\"i'm the cto\" \"ai\" OR \"i am the cto\" \"ai\" -recruiter -staffing -c2c", "note": "B3 — first-person CTO"},
-  {"group": "B3", "tier": 2, "maxResults": 10, "query": "\"our team\" \"ai engineer\" \"join us\" remote -recruiter -staffing -c2c", "note": "B3 — founder-narrative voice"},
-  {"group": "B3", "tier": 2, "maxResults": 10, "query": "\"building a saas\" \"ai\" OR \"running a saas\" \"ai\" -recruiter -staffing -c2c", "note": "B3 — operator voice"},
-
-  {"group": "B1", "tier": 3, "maxResults": 10, "query": "\"contract\" \"ai engineer\" remote -staffing -c2c -resume", "note": "B1 fallback — proven historical performer"},
-  {"group": "B1", "tier": 3, "maxResults": 10, "query": "\"looking for\" \"ai developer\" remote contract -staffing -c2c -resume", "note": "B1 fallback — proven historical performer"},
-  {"group": "B1", "tier": 3, "maxResults": 10, "query": "\"contract\" \"machine learning\" engineer remote -staffing -c2c -resume", "note": "B1 fallback — proven historical performer"},
-  {"group": "B1", "tier": 3, "maxResults": 10, "query": "\"freelance\" \"ai engineer\" remote -staffing -c2c -resume", "note": "B1 fallback — proven historical performer"},
-  {"group": "B1", "tier": 3, "maxResults": 10, "query": "\"looking for\" \"rag pipeline\" OR \"looking for\" \"rag developer\" -staffing -c2c", "note": "B1 fallback — RAG niche performer"}
+  {
+    "group": "B1",
+    "tier": 3,
+    "maxResults": 10,
+    "query": "\"contract\" \"ai engineer\" remote -staffing -c2c -resume",
+    "note": "B1 fallback — proven historical performer"
+  },
+  {
+    "group": "B1",
+    "tier": 3,
+    "maxResults": 10,
+    "query": "\"looking for\" \"ai developer\" remote contract -staffing -c2c -resume",
+    "note": "B1 fallback — proven historical performer"
+  },
+  {
+    "group": "B1",
+    "tier": 3,
+    "maxResults": 10,
+    "query": "\"contract\" \"machine learning\" engineer remote -staffing -c2c -resume",
+    "note": "B1 fallback — proven historical performer"
+  },
+  {
+    "group": "B1",
+    "tier": 3,
+    "maxResults": 10,
+    "query": "\"freelance\" \"ai engineer\" remote -staffing -c2c -resume",
+    "note": "B1 fallback — proven historical performer"
+  },
+  {
+    "group": "B1",
+    "tier": 3,
+    "maxResults": 10,
+    "query": "\"looking for\" \"rag pipeline\" OR \"looking for\" \"rag developer\" -staffing -c2c",
+    "note": "B1 fallback — RAG niche performer"
+  },
+  {
+    "group": "B2",
+    "tier": 1,
+    "maxResults": 12,
+    "query": "\"our rag\" \"accuracy\" OR \"our rag\" \"slow\" -recruiter -staffing -c2c -resume",
+    "note": "B2 — founder owns a RAG system, problem statement"
+  },
+  {
+    "group": "B2",
+    "tier": 1,
+    "maxResults": 12,
+    "query": "\"our chatbot\" \"production\" OR \"our chatbot\" \"hallucinating\" -recruiter -c2c",
+    "note": "B2 — founder owns a chatbot, problem statement"
+  },
+  {
+    "group": "B2",
+    "tier": 1,
+    "maxResults": 12,
+    "query": "\"struggling with\" \"llm\" OR \"struggling with\" \"rag\" -recruiter -staffing -c2c",
+    "note": "B2 — explicit problem confession (rare buyer signal)"
+  },
+  {
+    "group": "B2",
+    "tier": 1,
+    "maxResults": 12,
+    "query": "\"we built\" \"ai agent\" OR \"we shipped\" \"ai agent\" -recruiter -staffing -c2c",
+    "note": "B2 — shipped product, ownership signal"
+  },
+  {
+    "group": "B2",
+    "tier": 1,
+    "maxResults": 12,
+    "query": "\"founder\" \"looking for help\" \"ai\" -recruiter -staffing -c2c -resume",
+    "note": "B2 — explicit founder + ask"
+  },
+  {
+    "group": "B2",
+    "tier": 1,
+    "maxResults": 12,
+    "query": "\"cto\" \"scaling\" \"ai\" OR \"cto\" \"ai\" \"production\" -recruiter -staffing -c2c",
+    "note": "B2 — technical leader scaling AI"
+  },
+  {
+    "group": "B2",
+    "tier": 1,
+    "maxResults": 12,
+    "query": "\"need someone to build\" \"ai feature\" OR \"need to build\" \"rag\" -recruiter",
+    "note": "B2 — scope-defined buyer ask"
+  },
+  {
+    "group": "B2",
+    "tier": 1,
+    "maxResults": 12,
+    "query": "\"our llm\" \"cost\" OR \"our llm\" \"expensive\" -recruiter -staffing -c2c -resume",
+    "note": "B2 — production cost pain"
+  },
+  {
+    "group": "B2",
+    "tier": 1,
+    "maxResults": 12,
+    "query": "\"can someone help\" \"rag\" OR \"can someone help\" \"agent\" -recruiter -c2c",
+    "note": "B2 — direct help-ask"
+  },
+  {
+    "group": "B2",
+    "tier": 1,
+    "maxResults": 12,
+    "query": "\"founder\" \"saas\" \"ai feature\" -recruiter -staffing -c2c -resume",
+    "note": "B2 — SaaS founder shipping AI"
+  },
+  {
+    "group": "B3",
+    "tier": 2,
+    "maxResults": 10,
+    "query": "\"i'm a founder\" \"ai\" -recruiter -staffing -c2c -resume",
+    "note": "B3 — first-person founder voice"
+  },
+  {
+    "group": "B3",
+    "tier": 2,
+    "maxResults": 10,
+    "query": "\"as a founder\" \"ai\" OR \"as a cto\" \"ai\" -recruiter -staffing -c2c -resume",
+    "note": "B3 — first-person identity"
+  },
+  {
+    "group": "B3",
+    "tier": 2,
+    "maxResults": 10,
+    "query": "\"i'm the cto\" \"ai\" OR \"i am the cto\" \"ai\" -recruiter -staffing -c2c",
+    "note": "B3 — first-person CTO"
+  },
+  {
+    "group": "B3",
+    "tier": 2,
+    "maxResults": 10,
+    "query": "\"our team\" \"ai engineer\" \"join us\" remote -recruiter -staffing -c2c",
+    "note": "B3 — founder-narrative voice"
+  },
+  {
+    "group": "B3",
+    "tier": 2,
+    "maxResults": 10,
+    "query": "\"building a saas\" \"ai\" OR \"running a saas\" \"ai\" -recruiter -staffing -c2c",
+    "note": "B3 — operator voice"
+  },
+  {
+    "group": "B4",
+    "tier": 1,
+    "maxResults": 30,
+    "mode": "profile-watch",
+    "query": "<profile-watch:product-founders>",
+    "note": "B4 — rotating product-founder profile watch (30 founders × ~2 posts each)"
+  }
 ]
