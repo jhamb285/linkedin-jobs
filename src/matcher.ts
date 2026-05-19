@@ -107,27 +107,76 @@ export async function runScorer(
       //
       // The LLM-produced rawTotal is a starting point. We then nudge it
       // based on what classifyAuthor (run during scrape) wrote to
-      // contact_identities.metadata.tags. This makes the recruiter
-      // penalty hard-deterministic instead of relying on the LLM to
-      // re-interpret a prompt every single call.
+      // contact_identities.metadata.tags AND geo signals in the post
+      // body. Penalty depth is GEO-AWARE: per 2026-05-19 user direction,
+      // recruiters (Indian or otherwise) posting contract roles for
+      // developed-country clients are valid leads — the staffing-firm
+      // tag alone shouldn't crush them. We only apply the heavy penalty
+      // when the role itself looks India-located (IST hours, INR pay,
+      // "in India").
       //
-      // Penalties stack but the net adjustment is clamped to [-30, +15]
-      // so a single misclassification can't slam a real lead to 0.
+      // Penalties net is clamped to [-30, +25].
       const tags = await store.getAuthorTags(post.authorUrl);
+      const bodyLower = post.content.toLowerCase();
+      const headlineLower = post.authorHeadline.toLowerCase();
+      // Reuse the same target-region anchors used by the scraper rescue
+      // logic to detect dev-country-located roles in body.
+      const DEV_COUNTRY_MARKERS = [
+        "united states", " usa ", " u.s.", "us-based", "us based",
+        "uk-based", "uk based", "europe-based", "europe based",
+        "australia", "australian", "singapore", "uae",
+        "in the us", "in the usa", "in the uk", "in europe", "in the eu",
+        "remote us", "remote (us", "remote uk", "remote (uk", "remote eu",
+        " usd", "$/hr", "/hr usd", "per hour usd",
+        "£/hr", "eur/hr", " eur ", "€/hr",
+        " est ", " pst ", " cst ", " edt ", " pdt ",
+        "eastern time", "pacific time", "central time",
+        "us shift", "us hours",
+      ];
+      const INDIA_ROLE_MARKERS = [
+        "in india", "india-based role", "based in india", "remote within india",
+        "ist hours", "ist time", "ist shift", "indian standard time",
+        " inr ", " inr,", " inr.", "₹", "lakh", "lakhs", "lpa", "ctc:",
+        "indian candidates", "candidates from india",
+      ];
+      const headlineHasIndiaCity = /(bangalore|bengaluru|hyderabad|mumbai|delhi|chennai|pune|kolkata|noida|gurgaon|gurugram)/i.test(headlineLower);
+      const bodyHasDevCountry = DEV_COUNTRY_MARKERS.some((m) => bodyLower.includes(m));
+      const bodyHasIndiaRole = INDIA_ROLE_MARKERS.some((m) => bodyLower.includes(m)) || headlineHasIndiaCity;
+      // "Role is in a dev country, recruiter just happens to be a
+      // staffing firm" → soften the penalty. "Role is in India" → keep
+      // the original hard penalty (we don't want IST/INR roles).
+      const roleLooksDevCountry = bodyHasDevCountry && !bodyHasIndiaRole;
+
       let adjustment = 0;
       const adjReasons: string[] = [];
 
       if (tags.includes("staffing-firm")) {
-        adjustment -= 25;
-        adjReasons.push("staffing-firm:-25");
+        if (roleLooksDevCountry) {
+          adjustment -= 5;
+          adjReasons.push("staffing-firm-dev:-5");
+        } else {
+          adjustment -= 25;
+          adjReasons.push("staffing-firm:-25");
+        }
       }
       if (tags.includes("recruiter") && !tags.includes("target-fit")) {
-        adjustment -= 20;
-        adjReasons.push("recruiter:-20");
+        if (roleLooksDevCountry) {
+          // Recruiter posting a dev-country contract is the buyer's
+          // intermediary — score normally based on the role.
+          adjReasons.push("recruiter-dev:0");
+        } else {
+          adjustment -= 20;
+          adjReasons.push("recruiter:-20");
+        }
       }
       if (tags.includes("agency-founder")) {
-        adjustment -= 18;
-        adjReasons.push("agency-founder:-18");
+        if (roleLooksDevCountry) {
+          adjustment -= 5;
+          adjReasons.push("agency-founder-dev:-5");
+        } else {
+          adjustment -= 18;
+          adjReasons.push("agency-founder:-18");
+        }
       }
       if (tags.includes("low-engagement")) {
         adjustment -= 10;
@@ -166,7 +215,37 @@ export async function runScorer(
         adjReasons.push("founder-ai:+6");
       }
 
-      adjustment = Math.max(-30, Math.min(15, adjustment));
+      // CEO / Founder direct-hire boost.
+      //
+      // The single highest-converting lead pattern is a product-company
+      // CEO or Founder hiring a specific role themselves (not via a
+      // recruiter). When the headline matches CEO/Founder/CTO AND the
+      // body has explicit hiring intent AND we don't have an
+      // agency-founder tag, push the score up significantly — these
+      // are the easiest contracts to close.
+      const HIRING_INTENT = [
+        "we are looking for", "i'm looking for", "i am looking for",
+        "i need a", "we need a", "hiring a", "we're hiring",
+        "i'm hiring", "looking to hire", "want to hire",
+        "freelance developer", "contract developer",
+        "looking for a developer", "looking for someone",
+        "needed", "needed –", "needed -", "needed —",
+      ];
+      const hasHiringIntent = HIRING_INTENT.some((p) => bodyLower.includes(p));
+      const isFounderOrExec =
+        tags.includes("founder") || tags.includes("executive");
+      if (
+        isFounderOrExec &&
+        hasHiringIntent &&
+        !tags.includes("agency-founder") &&
+        !tags.includes("staffing-firm") &&
+        !bodyHasIndiaRole
+      ) {
+        adjustment += 12;
+        adjReasons.push("direct-hire-ceo:+12");
+      }
+
+      adjustment = Math.max(-30, Math.min(25, adjustment));
       const total = Math.max(0, Math.min(40, rawTotal + adjustment));
       const tagReasoningSuffix =
         adjReasons.length > 0

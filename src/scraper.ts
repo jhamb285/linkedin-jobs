@@ -180,17 +180,27 @@ const EXCLUDED_REGIONS: string[] = [
 // remote in the US"). Single match alone is too noisy. The 04-28 round
 // that conflated these with the hard signals dropped pass rate from
 // ~22% to ~5%; this split restores the original signal/noise ratio.
+// IMPORTANT: per user direction (2026-05-19), Indian RECRUITERS posting
+// roles for abroad clients are valid leads — the staffing firm is just
+// the middleman. We only reject when the ROLE ITSELF is located in
+// India (Indian working hours, INR/lakh pay, "in India" location,
+// candidates required from India). Don't add Indian-staffing-firm-voice
+// signals (e.g. "share profiles at", "interested consultants or
+// referrals") to this list — those are author-voice, not role-location.
 const INDIA_CONTENT_HARD: string[] = [
-  // India — explicit statements
-  "in india", "india-based", "india based", "indian market", "indian candidates",
+  // India — explicit role location
+  "in india", "india-based role", "india based role", "based in india",
+  "indian market", "indian candidates", "candidates from india",
+  "remote within india", "within india", "remote - india", "remote in india",
   // India — IST timezone (only used in India-context)
   "ist hours", "ist time", "ist timezone", "ist working hours",
   "indian standard time", "ist shift", "9am ist", "10am ist", "5pm ist",
-  // India — language idioms (Indian-English only)
+  // India — comp markers (rupee / lakh / LPA / CTC) — strong role-location tells
+  "inr ", " inr,", " inr.", "₹", "lakh", "lakhs", "lpa", "ctc:",
+  "rupees",
+  // India — language idioms (kept as-is from prior version)
   "do the needful", "kindly revert", "kindly do", "pfa ",
   "as per discussion", "interested candidates may", "interested candidates can",
-  "share your cv at", "share your resume at", "drop your cv",
-  "drop your resume", "share updated cv", "share updated resume",
   "looking for immediate joiners", "immediate joiner", "immediate joiners",
   "notice period", "serving notice", "preferred notice",
   // India — comp markers (rupee / lakh / LPA / CTC)
@@ -380,6 +390,54 @@ export function checkLocation(
   const nonLatinCount = (postContent.match(/[\u0600-\u06FF\u0900-\u097F\u4E00-\u9FFF\u3040-\u309F\u30A0-\u30FF\u0E00-\u0E7F]/g) || []).length;
   if (nonLatinCount > 10) {
     return { pass: false, reason: "non-english-content" };
+  }
+
+  // Reject Latin-script foreign languages (German, Spanish, French,
+  // Italian, Portuguese, Dutch). Added 2026-05-19 after a German
+  // OneLog founder post scored 35/40 \u2014 the non-Latin check above
+  // only catches Arabic/CJK/Hindi/Thai, not Latin-alphabet languages.
+  //
+  // Strategy: count occurrences of dead-give-away foreign stopwords vs
+  // common English stopwords in a normalised word list. If foreign
+  // wins decisively (>=4 hits AND >= 2\u00D7 English hits), reject.
+  // Conservative on purpose \u2014 code-mixed English posts (e.g. "RFP /
+  // Proposal" + emoji + tech terms) must pass through.
+  const FOREIGN_STOPWORDS: Record<string, string[]> = {
+    de: ["der", "die", "das", "und", "ist", "wir", "ein", "eine", "nicht", "auch", "mit", "f\u00FCr", "von", "auf", "sind", "haben", "werden", "wenn", "aber", "wie"],
+    es: ["que", "los", "las", "una", "como", "para", "con", "por", "m\u00E1s", "esto", "esta", "pero", "est\u00E1", "son", "todo", "muy", "sus", "porque", "donde", "tambi\u00E9n"],
+    fr: ["que", "les", "des", "une", "pour", "avec", "dans", "sur", "est", "sont", "nous", "vous", "leur", "cette", "comme", "aussi", "m\u00EAme", "alors", "mais", "tout"],
+    it: ["che", "non", "una", "uno", "per", "con", "sono", "questo", "questa", "loro", "anche", "molto", "quando", "essere", "fare", "dire", "come", "dove", "perch\u00E9", "stato"],
+    pt: ["que", "n\u00E3o", "uma", "para", "com", "como", "isso", "isto", "essa", "este", "s\u00E3o", "est\u00E3o", "tudo", "porque", "mais", "muito", "tamb\u00E9m", "quando", "onde", "mas"],
+    nl: ["het", "een", "van", "voor", "met", "dat", "die", "deze", "wij", "ook", "maar", "naar", "door", "over", "tot", "toch", "weer", "kunnen", "moeten", "willen"],
+  };
+  const ENGLISH_STOPWORDS = [
+    "the", "and", "for", "with", "that", "this", "from", "have", "are", "was",
+    "will", "would", "should", "could", "what", "when", "where", "who", "we", "our",
+    "their", "they", "you", "your", "us", "into", "about", "over", "between", "more",
+    "ai", "agent", "agents", "model", "models", "data", "api", "engineer", "build", "build",
+  ];
+
+  // Tokenise to words: lowercase, strip punctuation, only alpha.
+  const words = postContent
+    .toLowerCase()
+    .replace(/[^\p{L}\s]/gu, " ")
+    .split(/\s+/)
+    .filter((w) => w.length >= 2 && w.length <= 15);
+  const wordSet = words; // duplicates retained \u2014 frequency matters
+  if (wordSet.length >= 25) {
+    const englishHits = wordSet.filter((w) => ENGLISH_STOPWORDS.includes(w)).length;
+    let foreignHits = 0;
+    let foreignLang = "";
+    for (const [lang, sw] of Object.entries(FOREIGN_STOPWORDS)) {
+      const hits = wordSet.filter((w) => sw.includes(w)).length;
+      if (hits > foreignHits) {
+        foreignHits = hits;
+        foreignLang = lang;
+      }
+    }
+    if (foreignHits >= 4 && foreignHits >= englishHits * 2) {
+      return { pass: false, reason: `non-english-latin-${foreignLang}` };
+    }
   }
 
   // 2026-04-29 round 3 — CONTRACT RESCUE PATH (see helper above for full
