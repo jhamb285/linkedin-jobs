@@ -115,14 +115,48 @@ function appendRagFooter(
 function sanitize(content: SinglePersonaContent): SinglePersonaContent {
   return {
     ...content,
-    // Keep @-tag in comment (LinkedIn feed notification)
-    comment: content.comment,
-    // Strip @ from all private channels
+    // 2026-05-19: strip @ from comments too. User feedback: starting
+    // every comment with "@Author" looks robotic and the LinkedIn feed
+    // notification works without it (the post owner gets notified
+    // either way when their post receives a reply).
+    comment: linkedinFormat(stripAtMentions(content.comment) ?? ""),
     connectionNote: stripAtMentions(content.connectionNote) ?? "",
-    dm: stripAtMentions(content.dm) ?? "",
+    dm: linkedinFormat(stripAtMentions(content.dm) ?? ""),
     email: stripAtMentions(content.email),
     emailSubject: stripAtMentions(content.emailSubject),
   };
+}
+
+// LinkedIn doesn't render markdown — `**bold**` shows up literally as
+// asterisks in the feed. The platform Unicode equivalent is
+// Mathematical Sans-Serif Bold (𝗯𝗼𝗹𝗱), which LinkedIn does display
+// bold. This converts **text** spans to Unicode bold so the LLM can
+// keep writing markdown and we get the visual effect we want.
+const BOLD_LATIN_LOWER_OFFSET = 0x1d5ee - "a".charCodeAt(0); // 𝗮 - a
+const BOLD_LATIN_UPPER_OFFSET = 0x1d5d4 - "A".charCodeAt(0); // 𝗔 - A
+const BOLD_DIGIT_OFFSET = 0x1d7ec - "0".charCodeAt(0); // 𝟬 - 0
+function toUnicodeBold(text: string): string {
+  let out = "";
+  for (const ch of text) {
+    const code = ch.codePointAt(0)!;
+    if (code >= 0x61 && code <= 0x7a) {
+      out += String.fromCodePoint(code + BOLD_LATIN_LOWER_OFFSET);
+    } else if (code >= 0x41 && code <= 0x5a) {
+      out += String.fromCodePoint(code + BOLD_LATIN_UPPER_OFFSET);
+    } else if (code >= 0x30 && code <= 0x39) {
+      out += String.fromCodePoint(code + BOLD_DIGIT_OFFSET);
+    } else {
+      out += ch;
+    }
+  }
+  return out;
+}
+
+function linkedinFormat(text: string): string {
+  if (!text) return text;
+  // Convert **bold** → Unicode sans-serif bold. Non-greedy to avoid
+  // joining two separate bold runs across a sentence.
+  return text.replace(/\*\*([^*]+?)\*\*/g, (_m, inner) => toUnicodeBold(inner));
 }
 
 /**
