@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import type { AppConfig } from "./types";
+import type { AppConfig, ScrapedPost } from "./types";
 import type { Store } from "./store";
 import { loadPromptDbFirst } from "./config";
 import { recordEvent } from "./events";
@@ -202,12 +202,25 @@ export async function runGenerator(
     else ragFail++;
     const ragContext = matches.context || "(no matches available)";
 
-    const prompt = promptByPersona[persona]
-      .replace("{post_content}", lead.content.slice(0, 2000))
-      .replace("{author_name}", lead.author_name)
-      .replace("{author_headline}", lead.author_headline)
-      .replace("{positioning}", lead.positioning)
-      .replace("{rag_context}", ragContext);
+    // When the post body contains an explicit email address, force the
+    // drafter to ALWAYS produce an email body addressed to that contact.
+    // Without this directive the LLM treats email as optional (~48% rate
+    // in prior runs); operator wants 100% coverage when an email is
+    // present in the post.
+    const detectedEmail =
+      (lead as ScrapedPost & { detectedEmail?: string | null }).detectedEmail ??
+      null;
+    const emailDirective = detectedEmail
+      ? `\n\n## EMAIL REQUIRED\nThe post contains the email "${detectedEmail}". You MUST produce a non-empty email + emailSubject in your response. Address the email to ${lead.author_name} at that address. Keep the email peer-to-peer, ≤180 words, with the same persona voice as the comment.`
+      : "";
+
+    const prompt =
+      promptByPersona[persona]
+        .replace("{post_content}", lead.content.slice(0, 2000))
+        .replace("{author_name}", lead.author_name)
+        .replace("{author_headline}", lead.author_headline)
+        .replace("{positioning}", lead.positioning)
+        .replace("{rag_context}", ragContext) + emailDirective;
 
     try {
       // 1 retry on bad parse — Gemini occasionally returns malformed JSON

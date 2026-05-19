@@ -325,6 +325,11 @@ export class Store {
         queryUsed: post.queryUsed,
         source: "linkedin_jobs",
         testRunId: post.testRunId ?? null,
+        // Stored so the drafter + UI can branch on "this post has an email
+        // → produce + show email draft" without re-running the regex.
+        metadata: post.detectedEmail
+          ? { detected_email: post.detectedEmail }
+          : null,
       })
       .onConflictDoNothing({ target: schema.posts.url })
       .returning({ id: schema.posts.id });
@@ -496,6 +501,7 @@ export class Store {
       SELECT
         p.id, p.url, p.author_name, p.author_headline, p.author_url,
         p.content, p.engagement_count, p.scraped_at, p.query_used,
+        p.metadata->>'detected_email' AS detected_email,
         s.relevance, s.fit, s.urgency,
         s.engagement_potential AS "engagementPotential",
         s.total, s.positioning, s.reasoning,
@@ -523,6 +529,7 @@ export class Store {
       engagement_count: number | null;
       scraped_at: Date;
       query_used: string | null;
+      detected_email: string | null;
       relevance: number;
       fit: number;
       urgency: number;
@@ -544,6 +551,7 @@ export class Store {
       engagementCount: r.engagement_count ?? 0,
       scrapedAt: toIso(r.scraped_at),
       queryUsed: r.query_used ?? "",
+      detectedEmail: r.detected_email,
       postId: r.id,
       relevance: r.relevance,
       fit: r.fit,

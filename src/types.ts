@@ -22,6 +22,10 @@ export interface ScrapedPost {
   /** One-off 3-way sourcing test tag (scripts/test-3way.ts). Always
    *  undefined for production scrapes. */
   testRunId?: string | null;
+  /** Email address detected in the post body (standard or obfuscated
+   *  "name at domain dot com" form). When set, the drafter is required
+   *  to produce an email body so HITL can fire the "Send as email" CTA. */
+  detectedEmail?: string | null;
 }
 
 // ── AI Scoring ──

@@ -28,6 +28,25 @@ function contentFingerprint(authorName: string, content: string): string {
   return createHash("sha256").update(normalized).digest("hex").slice(0, 16);
 }
 
+// ── Email detection ──
+// Ported from lead-magnet (web/lib/generate-content.ts). Catches both
+// standard "name@domain.tld" and obfuscated "name at domain dot com"
+// patterns that authors use to dodge LinkedIn's auto-link-stripping.
+// When a post contains an email, the drafter is required to produce an
+// email body — the "send as email" CTA in the UI depends on this.
+const EMAIL_REGEX = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
+const OBFUSCATED_EMAIL_REGEX =
+  /([a-zA-Z0-9._%+-]+)\s*(?:\[?\s*at\s*\]?|@)\s*([a-zA-Z0-9.-]+)\s*(?:\[?\s*dot\s*\]?|\.)\s*([a-zA-Z]{2,})/i;
+
+export function detectEmail(text: string): string | null {
+  if (!text) return null;
+  const standard = text.match(EMAIL_REGEX);
+  if (standard) return standard[0];
+  const obfuscated = text.match(OBFUSCATED_EMAIL_REGEX);
+  if (obfuscated) return `${obfuscated[1]}@${obfuscated[2]}.${obfuscated[3]}`;
+  return null;
+}
+
 // ── Location Filter ──
 
 const TARGET_REGIONS: string[] = [
@@ -738,6 +757,7 @@ export function normalizeApifyResult(raw: Record<string, unknown>, query: string
     engagementShares: shares,
     scrapedAt: dateStr,
     queryUsed: query,
+    detectedEmail: detectEmail(text),
   };
 }
 

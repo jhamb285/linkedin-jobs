@@ -168,6 +168,7 @@ export const posts = pgTable(
     queryUsed: text("query_used"),
     source: postSource("source").notNull(),
     testRunId: text("test_run_id"),
+    metadata: jsonb("metadata"),
   },
   (t) => ({
     scrapedAtIdx: index("posts_scraped_at_idx").on(t.scrapedAt.desc()),
