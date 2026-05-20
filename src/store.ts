@@ -22,6 +22,42 @@ import type {
   SearchQuery,
 } from "./types";
 
+/**
+ * Fire-and-forget call to the platform's internal tag endpoint. The
+ * endpoint is idempotent (skips if contact already has source='gemini'
+ * rows) so retries are safe. Failures are logged but do not throw —
+ * ingest must not break because Gemini is rate-limited; the nightly
+ * cron `tag-contact-roles.ts` on mediaos sweeps anything missed.
+ *
+ * No-ops silently if PLATFORM_API_URL or INTERNAL_API_KEY is unset
+ * (local dev, tests).
+ */
+async function tagContactRoleViaPlatform(contactId: string): Promise<void> {
+  const url = process.env.PLATFORM_API_URL;
+  const key = process.env.INTERNAL_API_KEY;
+  if (!url || !key) return;
+  try {
+    const res = await fetch(`${url}/api/internal/tag-contact`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Internal-Key": key,
+      },
+      body: JSON.stringify({ contactId }),
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) {
+      console.warn(
+        `[tag-contact] non-2xx ${res.status} for ${contactId}: ${(await res.text()).slice(0, 200)}`,
+      );
+    }
+  } catch (err) {
+    console.warn(
+      `[tag-contact] ${contactId} failed: ${(err as Error).message.slice(0, 200)}`,
+    );
+  }
+}
+
 export interface QueryRunCounts {
   fetched: number;
   inserted: number;
@@ -256,6 +292,10 @@ export class Store {
         ${metadata}, ${args.scrapedAt}, ${args.scrapedAt}
       )
     `);
+    // Fire-and-forget Gemini role tag via the platform endpoint. Only
+    // runs for new contacts (existing branch above returned earlier);
+    // endpoint is idempotent so retries are safe.
+    void tagContactRoleViaPlatform(contactId);
     return contactId;
   }
 
