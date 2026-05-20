@@ -58,6 +58,73 @@ async function tagContactRoleViaPlatform(contactId: string): Promise<void> {
   }
 }
 
+/**
+ * Ask the platform to resolve this identity into a contact — either
+ * an existing one (cross-platform match) or a brand new one. The
+ * endpoint owns the dedup decision; this pipeline just writes the
+ * identity row against whatever contact_id comes back.
+ *
+ * Falls back to "create a new contact locally" when the endpoint is
+ * unreachable or returns an error. Better to under-merge than to
+ * drop a lead.
+ *
+ * Returns `{ contactId, isNewContact }` where isNewContact=true means
+ * a new row exists in `contacts` and the caller should fire the
+ * role tagger; false means the identity is being attached to an
+ * existing contact (which is already tagged or will be on the cron).
+ */
+async function resolveContactViaPlatform(
+  args: {
+    platform: string;
+    username: string;
+    displayName: string;
+    headline?: string | null;
+    location?: string | null;
+    profileUrl?: string | null;
+  },
+  fallbackInsert: () => Promise<string>,
+): Promise<{ contactId: string; isNewContact: boolean }> {
+  const url = process.env.PLATFORM_API_URL;
+  const key = process.env.INTERNAL_API_KEY;
+  if (!url || !key) {
+    return { contactId: await fallbackInsert(), isNewContact: true };
+  }
+  try {
+    const res = await fetch(`${url}/api/internal/resolve-contact`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Internal-Key": key,
+      },
+      body: JSON.stringify(args),
+      signal: AbortSignal.timeout(15000), // Gemini-confirm path can be slow
+    });
+    if (!res.ok) {
+      console.warn(
+        `[resolve-contact] non-2xx ${res.status} for ${args.platform}:${args.username}; falling back`,
+      );
+      return { contactId: await fallbackInsert(), isNewContact: true };
+    }
+    const data = (await res.json()) as {
+      ok?: boolean;
+      contactId?: string;
+      action?: string;
+    };
+    if (!data.ok || !data.contactId) {
+      return { contactId: await fallbackInsert(), isNewContact: true };
+    }
+    return {
+      contactId: data.contactId,
+      isNewContact: data.action === "created_new",
+    };
+  } catch (err) {
+    console.warn(
+      `[resolve-contact] ${args.platform}:${args.username} failed: ${(err as Error).message.slice(0, 200)}; falling back`,
+    );
+    return { contactId: await fallbackInsert(), isNewContact: true };
+  }
+}
+
 export interface QueryRunCounts {
   fetched: number;
   inserted: number;
@@ -274,13 +341,32 @@ export class Store {
       return existing.contact_id;
     }
 
-    // New identity — also create the parent contact.
-    const contactRow = (await db.execute(sql`
-      INSERT INTO contacts (display_name)
-      VALUES (${displayName})
-      RETURNING id
-    `)).rows[0] as { id: string };
-    const contactId = contactRow.id;
+    // New identity. Ask the platform whether this person already exists
+    // under a different platform (e.g., the same author also shows up
+    // on X or Reddit). Attach the new identity to whatever contact_id
+    // the resolver returns. On resolver failure, fall back to creating
+    // a fresh contact locally.
+    const { contactId, isNewContact } = await resolveContactViaPlatform(
+      {
+        platform,
+        username,
+        displayName,
+        headline,
+        // linkedin-jobs doesn't capture location on the identity row
+        // yet — pass null so the resolver doesn't get bad signal. If
+        // we ever extract LinkedIn location, plumb it here.
+        location: null,
+        profileUrl: args.authorUrl,
+      },
+      async () => {
+        const row = (await db.execute(sql`
+          INSERT INTO contacts (display_name)
+          VALUES (${displayName})
+          RETURNING id
+        `)).rows[0] as { id: string };
+        return row.id;
+      },
+    );
     await db.execute(sql`
       INSERT INTO contact_identities (
         contact_id, platform, username, profile_url,
@@ -292,10 +378,12 @@ export class Store {
         ${metadata}, ${args.scrapedAt}, ${args.scrapedAt}
       )
     `);
-    // Fire-and-forget Gemini role tag via the platform endpoint. Only
-    // runs for new contacts (existing branch above returned earlier);
-    // endpoint is idempotent so retries are safe.
-    void tagContactRoleViaPlatform(contactId);
+    // Tag the contact only when a brand-new one was created. Merged
+    // contacts are already tagged or will be picked up by the nightly
+    // cron.
+    if (isNewContact) {
+      void tagContactRoleViaPlatform(contactId);
+    }
     return contactId;
   }
 
