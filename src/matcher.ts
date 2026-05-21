@@ -119,19 +119,66 @@ export async function runScorer(
       const tags = await store.getAuthorTags(post.authorUrl);
       const bodyLower = post.content.toLowerCase();
       const headlineLower = post.authorHeadline.toLowerCase();
-      // Reuse the same target-region anchors used by the scraper rescue
-      // logic to detect dev-country-located roles in body.
+      // Target markets per CLAUDE.md: US, UK, EU, Malaysia, Singapore,
+      // UAE, Saudi Arabia, Norway, Australia, New Zealand. Canada is
+      // also accepted (often grouped with US contract pools).
       const DEV_COUNTRY_MARKERS = [
-        "united states", " usa ", " u.s.", "us-based", "us based",
-        "uk-based", "uk based", "europe-based", "europe based",
-        "australia", "australian", "singapore", "uae",
+        // Country names + obvious abbreviations
+        "united states", " usa", " u.s.", "us-based", "us based", " us ",
+        "uk-based", "uk based", "united kingdom", " uk ", "britain", "british",
+        "europe-based", "europe based", " eu ", "european union", "eea",
+        "australia", "australian", " au ", " aus ",
+        "new zealand", " nz ", "kiwi",
+        "singapore", " sg ", "s'pore",
+        "uae", "emirates", "abu dhabi", "dubai",
+        "saudi", "ksa", "riyadh", "jeddah",
+        "norway", "norwegian", "oslo",
+        "malaysia", "malaysian", "kuala lumpur",
+        "canada", "canadian", "toronto", "vancouver", "montreal",
+        "germany", "german", "berlin", "munich", "frankfurt",
+        "france", " french", "paris",
+        "netherlands", "amsterdam", "rotterdam",
+        "switzerland", "swiss", "zurich", "geneva",
+        "sweden", "stockholm", "denmark", "copenhagen",
+        "finland", "helsinki", "ireland", "dublin",
+        "spain", "madrid", "barcelona",
+        "italy", "italian", "rome", "milan",
+        "belgium", "brussels", "portugal", "lisbon",
+        "austria", "vienna",
+        // US states (abbrev + key full names — strong USA signal)
+        " ca ", " ny ", " nyc ", " tx ", " fl ", " wa ", " ma ", " il ",
+        " ga ", " va ", " nc ", " nj ", " co ", " or ", " mi ", " oh ",
+        " pa ", " md ", " az ", " nv ", " mn ", " ct ", " wi ", " mo ",
+        " new york", " california", " texas", " florida", " washington",
+        " massachusetts", " illinois", " virginia", " new jersey",
+        " colorado", " georgia", "san francisco", "los angeles", "bay area",
+        "chicago", "boston", "seattle", "austin", "atlanta", "denver",
+        "miami", "washington dc", " d.c.", "houston", "dallas",
+        // UK / EU cities
+        "london", "manchester", "birmingham", "edinburgh", "glasgow", "bristol",
+        "sydney", "melbourne", "brisbane", "perth", "auckland", "wellington",
+        // Phrasing
         "in the us", "in the usa", "in the uk", "in europe", "in the eu",
+        "across the us", "across europe",
         "remote us", "remote (us", "remote uk", "remote (uk", "remote eu",
-        " usd", "$/hr", "/hr usd", "per hour usd",
-        "£/hr", "eur/hr", " eur ", "€/hr",
-        " est ", " pst ", " cst ", " edt ", " pdt ",
-        "eastern time", "pacific time", "central time",
+        "remote, us", "remote, uk", "remote – us", "remote – uk",
+        "us only", "uk only", "eu only", "us-only", "uk-only",
+        "us citizens", "us residents", "us work auth", "us-based candidates",
+        // Currency / pay rate markers
+        " usd", "usd ", "usd/", "/usd", "/hr usd", "per hour usd",
+        "$/hr", "$/hour", "/hour usd",
+        "£", "£/hr", "gbp", "eur/hr", "€", " eur ", "€/hr",
+        "aud", "nzd", "sgd", "aed", "sar", "nok", "chf", "cad",
+        "$100k", "$120k", "$150k", "$200k", "$250k",
+        // US time zones
+        " est ", " pst ", " cst ", " edt ", " pdt ", " mst ", " mdt ", " et ", " pt ",
+        "eastern time", "pacific time", "central time", "mountain time",
         "us shift", "us hours",
+        // UK / EU time zones
+        " bst ", " gmt ", " cet ", " cest ",
+        // US visa / work-auth (signals US-based role)
+        "h1b", "h-1b", "uscis", " ead ", "green card", "tn visa", " gc ",
+        "us work authorization",
       ];
       const INDIA_ROLE_MARKERS = [
         "in india", "india-based role", "based in india", "remote within india",
@@ -142,10 +189,21 @@ export async function runScorer(
       const headlineHasIndiaCity = /(bangalore|bengaluru|hyderabad|mumbai|delhi|chennai|pune|kolkata|noida|gurgaon|gurugram)/i.test(headlineLower);
       const bodyHasDevCountry = DEV_COUNTRY_MARKERS.some((m) => bodyLower.includes(m));
       const bodyHasIndiaRole = INDIA_ROLE_MARKERS.some((m) => bodyLower.includes(m)) || headlineHasIndiaCity;
-      // "Role is in a dev country, recruiter just happens to be a
-      // staffing firm" → soften the penalty. "Role is in India" → keep
-      // the original hard penalty (we don't want IST/INR roles).
-      const roleLooksDevCountry = bodyHasDevCountry && !bodyHasIndiaRole;
+      // 2026-05-21: trust Gemini's geographical judgement.
+      //
+      // The scoring prompt explicitly evaluates location/remote-compat
+      // as part of `fit`. When the LLM gave fit>=8 it already verified
+      // the role is in an approved market. Layering a -20 recruiter
+      // penalty on top of fit=10 was double-counting and killing
+      // legit leads (Daniela Morales, Aniruddh Ranjan, Sathish Kumar,
+      // Rajat Pamboo, NITIN RAJ, Ezra Daniel, etc. — all Indian-named
+      // recruiters posting valid US/EU contract roles).
+      //
+      // Fallback substring check still gates the borderline fit=5-7
+      // cases, and an explicit India-role signal in the body always
+      // overrides (we never want IST/INR roles regardless of fit).
+      const roleLooksDevCountry =
+        !bodyHasIndiaRole && (parsed.fit >= 8 || bodyHasDevCountry);
 
       let adjustment = 0;
       const adjReasons: string[] = [];
