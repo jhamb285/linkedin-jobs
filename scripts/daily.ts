@@ -29,7 +29,7 @@ import { runGenerator } from "../src/commenter";
 import { formatIst } from "../src/time";
 import { eq, sql } from "drizzle-orm";
 
-const BATCH_TARGET_SIZE = 50;
+const BATCH_TARGET_SIZE = 200;
 
 interface StageResult {
   stage: string;
