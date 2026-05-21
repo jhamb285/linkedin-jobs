@@ -619,6 +619,13 @@ export class Store {
         "Founder users (AJ, PK) not seeded — run `bun run db/seed.ts` first.",
       );
     }
+    // 2026-05-21: dropped lb.status='active' constraint. Each daily
+    // run closes the prior active batch and opens a new one — any
+    // post that landed in the prior batch but never got drafted (e.g.
+    // because the old per-author dedup skipped it) was silently
+    // orphaned. The d.id IS NULL left-join still prevents double
+    // drafting; a 14-day floor caps how far back we'll reach for
+    // catch-up.
     const rows = (await db.execute(sql`
       SELECT
         p.id, p.url, p.author_name, p.author_headline, p.author_url,
@@ -630,7 +637,7 @@ export class Store {
         s.scored_at AS "scoredAt",
         ba.assigned_user_id AS "assignedUserId"
       FROM batch_assignments ba
-      JOIN lead_batches lb ON lb.id = ba.batch_id AND lb.status = 'active'
+      JOIN lead_batches lb ON lb.id = ba.batch_id
       JOIN posts p ON p.id = ba.post_id
       JOIN scores s ON s.post_id = p.id
       LEFT JOIN engagement_drafts d
@@ -640,6 +647,7 @@ export class Store {
         AND s.fit > 0
         AND ba.assigned_user_id IS NOT NULL
         AND d.id IS NULL
+        AND lb.created_at >= now() - interval '14 days'
       ORDER BY s.total DESC
     `)).rows as Array<{
       id: string;
