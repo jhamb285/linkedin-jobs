@@ -195,24 +195,6 @@ export class Store {
     return (rows[0]?.n ?? 0) > 0;
   }
 
-  /**
-   * Replaces the legacy "did we comment on this author lately?" check.
-   * In the new schema we treat "we have an engagement_drafts row for any of
-   * this author's posts in the last N days" as the equivalent signal.
-   */
-  async wasAuthorCommentedRecently(authorUrl: string, days: number = 7): Promise<boolean> {
-    if (!authorUrl) return false;
-    const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-    const rows = (await db.execute(sql`
-      SELECT count(*)::int AS n
-        FROM engagement_drafts d
-        JOIN posts p ON p.id = d.post_id
-       WHERE p.author_url = ${authorUrl}
-         AND d.generated_at >= ${cutoff}
-    `)).rows as Array<{ n: number }>;
-    return (rows[0]?.n ?? 0) > 0;
-  }
-
   // ── Posts ──────────────────────────────────────────────────────────────
 
   /**

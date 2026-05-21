@@ -201,7 +201,6 @@ export async function runGenerator(
   };
 
   let generated = 0;
-  let skippedDedup = 0;
   let parseFailed = 0;
   let apiError = 0;
   let ragOk = 0;
@@ -209,25 +208,6 @@ export async function runGenerator(
 
   for (const lead of leads) {
     const persona: Persona = lead.assignedPersona;
-
-    if (await store.wasAuthorCommentedRecently(lead.author_url ?? "")) {
-      console.log(
-        `  [skip] Already engaged with ${lead.author_name} recently`,
-      );
-      skippedDedup++;
-      await recordEvent({
-        eventType: "draft.skipped",
-        workflow: "linkedin_jobs",
-        actor: "linkedin-jobs.commenter",
-        payload: {
-          postId: lead.id,
-          persona,
-          scoreTotal: lead.total,
-          reason: "author-commented-recently",
-        },
-      });
-      continue;
-    }
 
     // RAG grounding for this persona. Soft-fails — if the API is down or
     // returns nothing, we fall back to a no-context prompt.
@@ -375,6 +355,6 @@ export async function runGenerator(
   }
 
   console.log(
-    `\nGeneration complete: ${generated} ${dryRun ? "(dry-run)" : "drafts written"}, ${skippedDedup} skipped-dedup, ${parseFailed} parse-failed, ${apiError} api-error. RAG: ${ragOk} grounded / ${ragFail} fallback.`,
+    `\nGeneration complete: ${generated} ${dryRun ? "(dry-run)" : "drafts written"}, ${parseFailed} parse-failed, ${apiError} api-error. RAG: ${ragOk} grounded / ${ragFail} fallback.`,
   );
 }

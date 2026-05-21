@@ -107,14 +107,12 @@ async function rotateBatch(): Promise<{
     .returning({ id: schema.leadBatches.id });
   const batchId = created[0].id;
 
-  // Pick top-N scored posts not already in any batch_assignment AND
-  // whose author hasn't received a draft in the last 7 days. The
-  // commenter.ts dedupe (`wasAuthorCommentedRecently`) was running per-
-  // post AFTER batch creation — meaning Tamer's day-2 post would grab a
-  // batch slot that the commenter then silently dropped. Pulling the
-  // author dedup up to batch creation lets the slot go to a fresh author.
+  // Pick top-N scored posts not already in any batch_assignment.
   //
-  // 7-day window matches commenter.ts's dedupe so the two stay aligned.
+  // 2026-05-21: dropped the per-author 7-day dedup. Recruiters
+  // legitimately post multiple distinct roles in a week; collapsing
+  // them to one engagement loses leads. Per-POST dedup is preserved
+  // (each post still drafts at most once).
   const candidates = (await db.execute(sql`
     SELECT p.id AS post_id, s.total AS total
       FROM posts p
@@ -123,14 +121,6 @@ async function rotateBatch(): Promise<{
        AND s.fit > 0
        AND s.total >= 20
        AND p.id NOT IN (SELECT post_id FROM batch_assignments)
-       AND p.author_url NOT IN (
-         SELECT p2.author_url
-           FROM engagement_drafts d
-           JOIN posts p2 ON p2.id = d.post_id
-          WHERE d.generated_at >= now() - interval '7 days'
-            AND p2.author_url IS NOT NULL
-            AND p2.author_url <> ''
-       )
      ORDER BY s.total DESC, p.scraped_at DESC
      LIMIT ${BATCH_TARGET_SIZE}
   `)).rows as Array<{ post_id: string; total: number }>;
