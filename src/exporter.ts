@@ -1,7 +1,6 @@
 import { writeFileSync, readFileSync, mkdirSync, existsSync } from "fs";
 import { join } from "path";
 import { google } from "googleapis";
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { Store } from "./store";
 import type { AppConfig } from "./types";
 import { loadPrompt } from "./config";

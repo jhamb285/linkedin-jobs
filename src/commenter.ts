@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { createVertexClient } from "./lib/vertex";
 import type { AppConfig, ScrapedPost } from "./types";
 import type { Store } from "./store";
 import { loadPromptDbFirst } from "./config";
@@ -190,8 +190,7 @@ export async function runGenerator(
     `Generating per-persona RAG-grounded content for ${leads.length} leads...\n`,
   );
 
-  const genAI = new GoogleGenerativeAI(config.geminiApiKey);
-  const model = genAI.getGenerativeModel({ model: config.geminiModel });
+  const model = createVertexClient({ model: config.geminiModel });
   // DB-first: pulls the latest prompt from content_prompts (edited via the
   // platform UI), falls back to the on-disk .md file if the DB row is
   // missing or unreachable.

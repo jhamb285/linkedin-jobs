@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { createVertexClient } from "./lib/vertex";
 import type { AppConfig, PostScore, ScoringResult, ScrapedPost } from "./types";
 import type { Store } from "./store";
 import { loadPromptDbFirst } from "./config";
@@ -59,8 +59,7 @@ export async function runScorer(
 
   console.log(`Scoring ${unscored.length} posts with Gemini Flash...\n`);
 
-  const genAI = new GoogleGenerativeAI(config.geminiApiKey);
-  const model = genAI.getGenerativeModel({ model: config.geminiModel });
+  const model = createVertexClient({ model: config.geminiModel });
   const template = await loadPromptDbFirst("scoring-prompt");
 
   let scored = 0;

@@ -23,7 +23,11 @@ export function loadConfig(): AppConfig {
       "APIFY_ACTOR_ID",
       "harvestapi/linkedin-post-search"
     ),
-    geminiApiKey: env("GEMINI_API_KEY"),
+    // Prefer VERTEX_API_KEY (Vertex AI Express Mode). Falls back to legacy
+    // GEMINI_API_KEY so deployments mid-rotation keep booting; the lib/vertex
+    // adapter normalises both names.
+    geminiApiKey:
+      process.env.VERTEX_API_KEY ?? process.env.GEMINI_API_KEY ?? "",
     geminiModel: env("GEMINI_MODEL", "gemini-2.5-flash-preview-04-17"),
     googleCredentialsPath: optionalEnv("GOOGLE_CREDENTIALS_PATH"),
     googleTokenPath: optionalEnv("GOOGLE_TOKEN_PATH"),
