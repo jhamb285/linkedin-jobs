@@ -376,6 +376,50 @@ function isContractRoleInTargetRegion(content: string): boolean {
   return true;
 }
 
+// 2026-05-26: Two additional rescue paths per PK direction:
+//
+//   Indian recruiters posting REMOTE-ABROAD roles (FT or contract) → valid.
+//   Contract roles ANYWHERE including India → valid (Par1k can do contract
+//   work for Indian clients too; only FT-in-India is blocked).
+//
+// These complement isContractRoleInTargetRegion above (which is the strict
+// "US/UK/EU contract" gate) so the filter no longer drops 200+ posts/run
+// from Indian-recruiter accounts that are surfacing legit remote roles.
+
+const REMOTE_SIGNALS: string[] = [
+  "remote", "fully remote", "remote-first", "remote first",
+  "work from anywhere", "work-from-anywhere", "wfh",
+  "100% remote", "fully-remote",
+];
+
+function isRemoteAbroadRole(content: string): boolean {
+  const lower = content.toLowerCase();
+  const hasRemote = REMOTE_SIGNALS.some((s) => lower.includes(s));
+  if (!hasRemote) return false;
+  const hasTarget = RESCUE_TARGET_REGION_BODY.some((s) => lower.includes(s));
+  if (!hasTarget) return false;
+  // Block when the role is explicitly India-only — even with "remote" +
+  // "USD" mentions, "remote within india" / "remote - india" means the
+  // role is locked to India.
+  if (
+    lower.includes("remote within india") ||
+    lower.includes("remote - india") ||
+    lower.includes("remote in india")
+  ) {
+    return false;
+  }
+  return true;
+}
+
+function isContractRoleAnywhere(content: string): boolean {
+  const lower = content.toLowerCase();
+  const hasContract = RESCUE_CONTRACT_SIGNALS.some((s) => lower.includes(s));
+  if (!hasContract) return false;
+  const hasFte = RESCUE_FTE_BLOCKERS.some((s) => lower.includes(s));
+  if (hasFte) return false;
+  return true;
+}
+
 export function checkLocation(
   headline: string,
   postContent: string,
@@ -459,6 +503,23 @@ export function checkLocation(
   // in a target region, regardless of recruiter geo.
   if (isContractRoleInTargetRegion(postContent)) {
     return { pass: true, reason: "contract-rescue" };
+  }
+
+  // 2026-05-26 — REMOTE-ABROAD RESCUE: Indian recruiters posting remote
+  // roles (FT or contract) for clients in US/UK/EU/etc. are valid leads.
+  // Previously these were dropped at "headlineExcluded" / "india-content-
+  // signal" when the recruiter's headline or post body had Indian markers.
+  if (isRemoteAbroadRole(postContent)) {
+    return { pass: true, reason: "remote-abroad-rescue" };
+  }
+
+  // 2026-05-26 — CONTRACT-ANYWHERE RESCUE: contract / freelance / 1099 /
+  // c2c roles bypass geo even when located in India. Par1k can do contract
+  // work for Indian clients too; only FT-in-India is filtered out (handled
+  // below by the FTE-blocker-aware INDIA_CONTENT_HARD check, which still
+  // catches "in india" + salary/permanent signals).
+  if (isContractRoleAnywhere(postContent)) {
+    return { pass: true, reason: "contract-anywhere-rescue" };
   }
 
   // 2026-04-29: check the author NAME for excluded regions, not just the
