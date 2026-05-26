@@ -317,6 +317,7 @@ export class Store {
             profile_url = COALESCE(${args.authorUrl}, profile_url),
             first_seen_at = ${newFirst},
             last_seen_at = ${newLast},
+            appearance_count = appearance_count + 1,
             metadata = ${mergedMetadata}
         WHERE id = ${existing.id}
       `);
