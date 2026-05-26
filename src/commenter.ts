@@ -1,4 +1,5 @@
 import { createVertexClient } from "./lib/vertex";
+import { meteredGenerate } from "./lib/gemini-meter";
 import type { AppConfig, ScrapedPost } from "./types";
 import type { Store } from "./store";
 import { loadPromptDbFirst } from "./config";
@@ -260,7 +261,13 @@ export async function runGenerator(
       let parsed: SinglePersonaContent | null = null;
       let lastText = "";
       for (let attempt = 1; attempt <= 2 && !parsed; attempt++) {
-        const result = await model.generateContent(prompt);
+        const result = await meteredGenerate(
+          model,
+          config.geminiModel,
+          "commenter",
+          prompt,
+          { pipeline: "linkedin", userOwner: lead.assignedUserId },
+        );
         lastText = result.response.text();
         parsed = parseSinglePersonaContent(lastText);
         if (!parsed && attempt === 1) {

@@ -1,4 +1,5 @@
 import { createVertexClient } from "./lib/vertex";
+import { meteredGenerate } from "./lib/gemini-meter";
 import type { AppConfig, PostScore, ScoringResult, ScrapedPost } from "./types";
 import type { Store } from "./store";
 import { loadPromptDbFirst } from "./config";
@@ -61,6 +62,9 @@ export async function runScorer(
 
   const model = createVertexClient({ model: config.geminiModel });
   const template = await loadPromptDbFirst("scoring-prompt");
+  const meterCtx: import("./lib/gemini-meter").MeterContext = {
+    pipeline: "linkedin",
+  };
 
   let scored = 0;
   let highScore = 0;
@@ -70,7 +74,13 @@ export async function runScorer(
     const prompt = buildScoringPrompt(template, post);
 
     try {
-      const result = await model.generateContent(prompt);
+      const result = await meteredGenerate(
+        model,
+        config.geminiModel,
+        "matcher",
+        prompt,
+        meterCtx,
+      );
       const text = result.response.text();
 
       const parsed = parseScoringResponse(text);
