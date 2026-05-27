@@ -245,13 +245,23 @@ export async function runScorer(
           adjReasons.push("agency-founder:-18");
         }
       }
-      if (tags.includes("low-engagement")) {
+      // 2026-05-27 — skip engagement/generic-company penalties when the
+      // LLM is highly confident (relevance>=7 AND fit>=8). These penalties
+      // exist to suppress spam, but they were over-correcting clear-buyer
+      // leads — e.g. "Global Hiring International, Coding Expert, Remote,
+      // Part-time Contract" got raw=32 (rel=8 fit=10 urg=5 eng=9) then
+      // -18 adjustment dropped it to 14. The LLM already correctly read
+      // the post; the deterministic rules shouldn't override its judgment.
+      const llmHighConfidence =
+        parsed.relevance >= 7 && parsed.fit >= 8;
+      if (tags.includes("low-engagement") && !llmHighConfidence) {
         adjustment -= 10;
         adjReasons.push("low-engagement:-10");
       }
       if (
         tags.includes("company-page") &&
-        !tags.includes("ai-engineering")
+        !tags.includes("ai-engineering") &&
+        !llmHighConfidence
       ) {
         adjustment -= 8;
         adjReasons.push("generic-company:-8");
