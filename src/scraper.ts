@@ -541,31 +541,31 @@ export function checkLocation(
   const hasTargetRegion = TARGET_REGIONS.some((r) => headlineLower.includes(r));
   if (isSpamRecruiter && !hasTargetRegion) return { pass: false, reason: "spam-recruiter" };
 
-  // Check post content for India/South Asia signals — two-tier evaluation.
+  // 2026-05-27 — RELAXED: PK direction "let Gemini judge, the filter is
+  // dropping leads we'd actually want". Previously this block rejected
+  // ~120 posts/day with India-region markers. Now we only hard-reject
+  // the unambiguous FT-in-India combination (INR pay + permanent terms);
+  // everything else passes to Gemini scorer.
   //
-  // HARD tier: any single match rejects. These are unambiguous tells
-  // (explicit "in India", IST timezone, Indian-English idioms, INR/LPA).
-  //
-  // SOFT tier: requires either (a) ≥2 matches, OR (b) zero target-region
-  // anchor anywhere in the body. A single soft hit + a target-region
-  // anchor (e.g. "fully remote in the US, our team is in Bangalore")
-  // is allowed through — the role is in the target region, the city
-  // mention is just team-context.
-  const hardHit = INDIA_CONTENT_HARD.some((s) => contentLower.includes(s));
-  if (hardHit) return { pass: false, reason: "india-content-signal-hard" };
-
-  const softMatches = INDIA_CONTENT_SOFT.filter((s) => contentLower.includes(s));
-  if (softMatches.length >= 2) {
-    return { pass: false, reason: "india-content-signal-soft-multi" };
-  }
-  if (softMatches.length === 1) {
-    const hasTargetAnchor = RESCUE_TARGET_REGION_BODY.some((s) =>
-      contentLower.includes(s),
-    );
-    if (!hasTargetAnchor) {
-      return { pass: false, reason: "india-content-signal-soft-single" };
-    }
-    // Single soft hit + target-region anchor → pass through to next check.
+  // Hard reject only when ALL THREE are true:
+  //   (a) explicit INR/lakh/LPA/rupees pay signal AND
+  //   (b) permanent/FT/salaried role signal AND
+  //   (c) no remote-abroad anchor in body
+  // This catches "Permanent role in Bangalore, INR 15 LPA" while letting
+  // "Remote AI engineer, $80/hr (India-based recruiter)" through.
+  const FT_INDIA_PAY = ["inr ", " inr,", " inr.", "₹", "lakh", "lakhs", "lpa", "ctc:", "rupees"];
+  const FT_INDIA_PERMANENT = [
+    "full-time role", "full time role", "full-time position", "full time position",
+    "permanent role", "permanent position", "permanent hire",
+    "annual salary", "yearly salary", "fixed pay", "in-office",
+  ];
+  const hasIndiaPay = FT_INDIA_PAY.some((s) => contentLower.includes(s));
+  const hasFtTerms = FT_INDIA_PERMANENT.some((s) => contentLower.includes(s));
+  const hasRemoteAbroadAnchor =
+    REMOTE_SIGNALS.some((s) => contentLower.includes(s)) &&
+    RESCUE_TARGET_REGION_BODY.some((s) => contentLower.includes(s));
+  if (hasIndiaPay && hasFtTerms && !hasRemoteAbroadAnchor) {
+    return { pass: false, reason: "ft-india-only" };
   }
 
   // (SPAM_BODY_SIGNALS check removed 2026-05-12 — LLM scorer handles
