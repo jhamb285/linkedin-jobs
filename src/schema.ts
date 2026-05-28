@@ -218,6 +218,7 @@ export const engagementDrafts = pgTable(
     followUpEmail: text("follow_up_email"),
     followUpEmailSubject: text("follow_up_email_subject"),
     recipientEmail: text("recipient_email"),
+    pipeline: text("pipeline"),
     status: draftStatus("status").notNull().default("pending"),
     generatedAt: timestamp("generated_at", { withTimezone: true })
       .notNull()

@@ -741,6 +741,7 @@ export class Store {
       followUpDm: content.followUpDm ?? null,
       followUpEmail: content.followUpEmail ?? null,
       followUpEmailSubject: content.followUpEmailSubject ?? null,
+      pipeline: "linkedin_jobs",
       status: "pending",
       generatedAt: new Date(),
     };
@@ -761,6 +762,7 @@ export class Store {
           followUpDm: value.followUpDm,
           followUpEmail: value.followUpEmail,
           followUpEmailSubject: value.followUpEmailSubject,
+          pipeline: "linkedin_jobs",
           generatedAt: new Date(),
         },
       });
