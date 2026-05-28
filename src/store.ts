@@ -1209,14 +1209,14 @@ export class Store {
       WITH q AS (
         SELECT query, sum(fetched)::int AS fetched
           FROM scrape_run_queries
-         WHERE started_at >= now() - (${lookbackDays} || ' days')::interval
+         WHERE started_at >= now() - make_interval(days => ${lookbackDays})
          GROUP BY query
       ),
       sc AS (
         SELECT p.query_used AS query, count(*)::int AS scored
           FROM posts p
           JOIN scores s ON s.post_id = p.id
-         WHERE p.scraped_at >= now() - (${lookbackDays} || ' days')::interval
+         WHERE p.scraped_at >= now() - make_interval(days => ${lookbackDays})
            AND p.query_used IS NOT NULL
          GROUP BY p.query_used
       ),
@@ -1225,7 +1225,7 @@ export class Store {
           FROM posts p
           JOIN scores s ON s.post_id = p.id
          WHERE s.total >= 20
-           AND p.scraped_at >= now() - (${lookbackDays} || ' days')::interval
+           AND p.scraped_at >= now() - make_interval(days => ${lookbackDays})
            AND p.query_used IS NOT NULL
          GROUP BY p.query_used
       )
