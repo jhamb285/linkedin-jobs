@@ -3,6 +3,7 @@ import type { AppConfig, ScrapedPost } from "./types";
 import type { Store, QueryRunCounts } from "./store";
 import { loadSearchQueries } from "./config";
 import { recordEvent } from "./events";
+import { getBudgetStatus } from "./lib/budget-guard";
 import { classifyAuthor } from "./author-classifier";
 import { createHash } from "crypto";
 
@@ -1002,6 +1003,27 @@ export async function runScraper(config: AppConfig, store: Store): Promise<void>
 
   if (remainingBudget === 0) {
     console.log(`Daily scrape cap reached (${todayAlready}/${cap}). Skipping run.`);
+    return;
+  }
+
+  // Unified rolling-24h $ cap guard (see src/lib/budget-guard.ts). Backstops
+  // the item-count cap above against per-post price drift; mirrors the guard
+  // in reddit-intent and x-intent.
+  const budget = await getBudgetStatus();
+  if (budget.blocked) {
+    console.log(
+      `[cap] 24h $ cap hit (spent=$${budget.spentToday.toFixed(4)} cap=$${budget.cap}); skipping run.`,
+    );
+    await recordEvent({
+      eventType: "scrape.run.skipped",
+      workflow: "linkedin_jobs",
+      actor: "linkedin-jobs.scraper",
+      payload: {
+        reason: "cost_cap_hit",
+        spentToday: budget.spentToday,
+        cap: budget.cap,
+      },
+    });
     return;
   }
 
