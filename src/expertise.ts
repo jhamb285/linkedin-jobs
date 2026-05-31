@@ -27,6 +27,13 @@ const DEFAULT_URLS: Record<Persona, string> = {
   aj: "https://arpit.kronus.tech/rag",
 };
 
+const DEFAULT_TIMEOUT_MS = 5_000;
+
+function getTimeoutMs(): number {
+  const raw = parseInt(process.env.RAG_TIMEOUT_MS ?? "", 10);
+  return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_TIMEOUT_MS;
+}
+
 function getBaseUrl(persona: Persona): string {
   if (persona === "pk") {
     return process.env.EXPERTISE_API_PK_URL || DEFAULT_URLS.pk;
@@ -120,22 +127,51 @@ export async function fetchExpertiseMatches(
 
   const url = `${getBaseUrl(persona)}/match`;
   const trimmed = text.slice(0, 1500);
+  const timeoutMs = getTimeoutMs();
+
+  async function fetchOnce(): Promise<Response> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": apiKey,
+        },
+        body: JSON.stringify({ text: trimmed, limit }),
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+  }
 
   let res: Response;
   try {
-    res = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-API-Key": apiKey,
-      },
-      body: JSON.stringify({ text: trimmed, limit }),
-    });
+    res = await fetchOnce();
   } catch (err) {
-    console.warn(
-      `[expertise] ${persona} RAG fetch failed: ${(err as Error).message}`,
-    );
-    return { context: "", matchCount: 0, ok: false };
+    const e = err as Error;
+    if (e.name === "AbortError") {
+      console.warn(
+        `[expertise] ${persona} RAG timeout after ${timeoutMs}ms — retrying once`,
+      );
+      await new Promise((r) => setTimeout(r, 1_000));
+      try {
+        res = await fetchOnce();
+      } catch (err2) {
+        const e2 = err2 as Error;
+        const reason =
+          e2.name === "AbortError"
+            ? `timeout after ${timeoutMs}ms (retry also failed)`
+            : e2.message;
+        console.warn(`[expertise] ${persona} RAG fetch failed: ${reason}`);
+        return { context: "", matchCount: 0, ok: false };
+      }
+    } else {
+      console.warn(`[expertise] ${persona} RAG fetch failed: ${e.message}`);
+      return { context: "", matchCount: 0, ok: false };
+    }
   }
 
   if (!res.ok) {

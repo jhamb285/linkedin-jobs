@@ -288,6 +288,7 @@ async function main(): Promise<void> {
         Date.now() - startedAt.getTime()
       }ms total\n`,
     );
+    await notifySlackDigest(startedAt);
   } catch (err) {
     await recordEvent({
       eventType: "daily.run.failed",
@@ -304,6 +305,67 @@ async function main(): Promise<void> {
     process.exitCode = 1;
   } finally {
     await store.close();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Slack daily digest. Queries today's apify_runs (cost) + engagement_drafts
+// (count) directly since this orchestrator doesn't carry a single summary
+// object across stages. Gated on SLACK_WEBHOOK_URL; soft-fail with 3s
+// timeout. Format mirrors x-intent + reddit-intent for consistency.
+// ---------------------------------------------------------------------------
+
+async function notifySlackDigest(startedAt: Date): Promise<void> {
+  const url = process.env.SLACK_WEBHOOK_URL;
+  if (!url) {
+    console.log("[slack] SLACK_WEBHOOK_URL unset — skipping daily digest");
+    return;
+  }
+  try {
+    // Today's spend for this actor (matches startScrapeRun's hardcoded id).
+    const costRow = (
+      await db.execute(sql`
+        SELECT COALESCE(SUM(total_cost_usd), 0)::float AS cost,
+               COUNT(*) AS runs
+        FROM apify_runs
+        WHERE actor = 'harvestapi/linkedin-post-search'
+          AND started_at >= now() - interval '24 hours'
+      `)
+    ).rows[0] as { cost: number; runs: number };
+
+    // Today's drafts for the linkedin pipeline.
+    const draftRow = (
+      await db.execute(sql`
+        SELECT COUNT(*)::int AS n
+        FROM engagement_drafts
+        WHERE pipeline = 'linkedin_jobs'
+          AND generated_at >= now() - interval '24 hours'
+      `)
+    ).rows[0] as { n: number };
+
+    const date = new Date().toISOString().slice(0, 10);
+    const elapsedS = ((Date.now() - startedAt.getTime()) / 1000).toFixed(1);
+    const text = `*linkedin-jobs* • ${date} • runs ${costRow.runs} / $${costRow.cost.toFixed(4)} • drafted ${draftRow.n} • ${elapsedS}s`;
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 3_000);
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+        signal: controller.signal,
+      });
+      if (!res.ok) {
+        console.warn(`[slack] digest returned ${res.status}`);
+      } else {
+        console.log("[slack] daily digest sent");
+      }
+    } finally {
+      clearTimeout(timer);
+    }
+  } catch (e) {
+    console.warn(`[slack] digest failed: ${(e as Error).message}`);
   }
 }
 
