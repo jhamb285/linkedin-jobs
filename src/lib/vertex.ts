@@ -38,10 +38,10 @@ const VERTEX_BASE =
 
 export function createVertexClient(opts: { model: string }): VertexClient {
   const apiKey =
-    process.env.VERTEX_API_KEY ?? process.env.GEMINI_API_KEY ?? null;
+    process.env.VERTEX_API_KEY ?? null;
   if (!apiKey) {
     throw new Error(
-      "VERTEX_API_KEY (or legacy GEMINI_API_KEY) env var must be set",
+      "VERTEX_API_KEY env var must be set",
     );
   }
   const url = `${VERTEX_BASE}/${opts.model}:generateContent?key=${apiKey}`;
