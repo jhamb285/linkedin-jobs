@@ -81,7 +81,7 @@ async function runStage(
   }
 }
 
-async function rotateBatch(): Promise<{
+async function rotateBatch(threshold: number): Promise<{
   batchId: string;
   assigned: number;
   closed: string | null;
@@ -119,7 +119,7 @@ async function rotateBatch(): Promise<{
       JOIN scores s ON s.post_id = p.id
      WHERE p.source = 'linkedin_jobs'
        AND s.fit > 0
-       AND s.total >= 20
+       AND s.total >= ${threshold}
        AND p.id NOT IN (SELECT post_id FROM batch_assignments)
      ORDER BY s.total DESC, p.scraped_at DESC
      LIMIT ${BATCH_TARGET_SIZE}
@@ -232,7 +232,7 @@ async function main(): Promise<void> {
       if (!flags.skipBatch) {
         let summary: BatchSummary | null = null;
         const r = await runStage("batch", async () => {
-          summary = await rotateBatch();
+          summary = await rotateBatch(config.scoringThreshold);
           await recordEvent({
             eventType: "batch.created",
             workflow: "linkedin_jobs",

@@ -53,7 +53,79 @@ function parseSinglePersonaContent(text: string): SinglePersonaContent | null {
  */
 function stripAtMentions(text: string | null): string | null {
   if (!text) return text;
-  return text.replace(/(^|[^\w.])@(\w[\w.-]*)/g, (_m, before) => before);
+  // Strip "@Name" mentions, plus any dangling "@" left before whitespace
+  // or punctuation (e.g. after a placeholder was removed).
+  return text
+    .replace(/(^|[^\w.])@(\w[\w.-]*)/g, (_m, before) => before)
+    .replace(/(^|[^\w.])@(?=[\s\W]|$)/g, (_m, before) => before);
+}
+
+// ---------------------------------------------------------------------------
+// Deterministic name substitution. The prompts ask the LLM to write the
+// recipient's first name as the literal token `[[FIRST_NAME]]` rather than
+// guessing it — so we control the actual value here and NO unsubstituted
+// `{Author_First_Name}` / `@{Edwin}` placeholder can ever ship (a real bug
+// we shipped before this guard existed).
+// ---------------------------------------------------------------------------
+
+const COMPANY_NAME_MARKERS = [
+  "job", "jobs", "hiring", "career", "careers", "recruit", "staffing",
+  "talent", "solution", "technolog", "systems", "labs", "inc", "llc",
+  "ltd", "gmbh", "pvt", "consulting", "agency", "group", "global",
+  "remote", "team", "ai ", "studio", "ventures", "capital", "partners",
+];
+
+/** Derive a usable first name, or null for company/generic-page authors. */
+function deriveFirstName(authorName: string): string | null {
+  const name = (authorName ?? "").trim();
+  if (!name) return null;
+  const lower = name.toLowerCase();
+  if (COMPANY_NAME_MARKERS.some((m) => lower.includes(m))) return null;
+  const first = (name.split(/\s+/)[0] ?? "").replace(/[^\p{L}'-]/gu, "");
+  if (first.length < 2) return null;
+  return first.charAt(0).toUpperCase() + first.slice(1);
+}
+
+/**
+ * Replace [[FIRST_NAME]] with the real name (or a neutral greeting when the
+ * author is a company page), then scrub any stray `{...}` / `[[...]]`
+ * placeholder the LLM might have leaked, and tidy the leftover punctuation.
+ */
+function fillNamePlaceholders(
+  text: string | null,
+  firstName: string | null,
+): string | null {
+  if (!text) return text;
+  const name = firstName ?? "there";
+  let out = text
+    // Intended token + common leaked spellings of "first name".
+    .replace(/\[\[\s*first[_ ]?name\s*\]\]/gi, name)
+    .replace(/\{+\s*@?\s*(?:author[_ ]?)?first[_ ]?name\s*\}+/gi, name)
+    .replace(/\{+\s*author[_ ]?name\s*\}+/gi, firstName ?? "")
+    // Any other stray bracketed placeholder → drop.
+    .replace(/\[\[[^\]]{0,40}\]\]/g, "")
+    .replace(/\{[^}]{0,40}\}/g, "");
+  // If we had no real name, fix greetings like "Hey there," cleanly.
+  // Tidy double spaces and space-before-punctuation left by removals.
+  out = out
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/ +([,.!?;:])/g, "$1")
+    .replace(/,\s*,/g, ",");
+  return out;
+}
+
+function fillNames(
+  content: SinglePersonaContent,
+  firstName: string | null,
+): SinglePersonaContent {
+  return {
+    summary: content.summary,
+    comment: fillNamePlaceholders(content.comment, firstName) ?? "",
+    connectionNote: fillNamePlaceholders(content.connectionNote, firstName) ?? "",
+    dm: fillNamePlaceholders(content.dm, firstName) ?? "",
+    email: fillNamePlaceholders(content.email, firstName),
+    emailSubject: fillNamePlaceholders(content.emailSubject, firstName),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -299,9 +371,14 @@ export async function runGenerator(
         continue;
       }
 
-      // sanitize first (strip @ mentions, etc.), THEN append RAG footer so
-      // the URL is never accidentally stripped by the mention-cleanup regex.
-      const sanitized = appendRagFooter(sanitize(parsed), persona);
+      // 1) fill [[FIRST_NAME]] + scrub any leaked {placeholder}, 2) sanitize
+      // (strip @ mentions, markdown→unicode bold), 3) append RAG footer last
+      // so the URL is never touched by the mention-cleanup regex.
+      const firstName = deriveFirstName(lead.author_name);
+      const sanitized = appendRagFooter(
+        sanitize(fillNames(parsed, firstName)),
+        persona,
+      );
 
       if (dryRun) {
         console.log(

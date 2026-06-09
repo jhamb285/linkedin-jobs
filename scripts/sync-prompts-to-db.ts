@@ -7,6 +7,7 @@ const ROOT = '/opt/automations/inbound/linkedin-jobs';
 const updates = [
   { key: 'linkedin_jobs.lead.aj', file: 'lead-prompt-aj.md' },
   { key: 'linkedin_jobs.lead.pk', file: 'lead-prompt-pk.md' },
+  { key: 'linkedin_jobs.scoring', file: 'scoring-prompt.md' },
 ];
 
 for (const { key, file } of updates) {

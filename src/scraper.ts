@@ -1077,6 +1077,17 @@ export async function runScraper(config: AppConfig, store: Store): Promise<void>
     }
     console.log(`[${q.group}${q.tier ? `/T${q.tier}` : ""}] ${q.query} (${resultLimit} results, budget left: ${budgetLeft})`);
 
+    // Hard $ ceiling for THIS actor call: the headroom left under the daily
+    // cap (prior rolling-24h spend + what this run has already fetched).
+    // Apify aborts the run once the charge reaches this value, so even a
+    // price drift or an actor that over-returns past maxPosts can't push
+    // total spend past the cap. Floored at a couple cents so a
+    // near-exhausted budget can still finish a tiny run.
+    const spentUsdSoFar =
+      budget.spentToday + fetchedThisRun * config.apifyCostPerLead;
+    const maxTotalChargeUsd =
+      Math.max(0.02, Math.round((budget.cap - spentUsdSoFar) * 100) / 100);
+
     // Per-query counters — persisted to scrape_run_queries at end of loop body
     // so the analytics leaderboard can answer "which query has best yield".
     const queryStartedAt = new Date().toISOString();
@@ -1109,7 +1120,7 @@ export async function runScraper(config: AppConfig, store: Store): Promise<void>
         } else {
           const run = await client
             .actor("harvestapi/linkedin-profile-posts")
-            .call({ profileUrls, maxPosts: 2 });
+            .call({ profileUrls, maxPosts: 2, maxTotalChargeUsd });
           ({ items } = await client.dataset(run.defaultDatasetId).listItems());
           actorRuns++;
         }
@@ -1131,6 +1142,7 @@ export async function runScraper(config: AppConfig, store: Store): Promise<void>
               maxPosts: resultLimit,
               sortBy: "date",
               postedLimit: "week",
+              maxTotalChargeUsd,
             }
           : {
               keyword: q.query,
@@ -1190,55 +1202,21 @@ export async function runScraper(config: AppConfig, store: Store): Promise<void>
 
         const scrapedAt = post.scrapedAt ? new Date(post.scrapedAt) : new Date();
 
-        // Classify the author once per post — used by every upsert call site
-        // below so each contact_identity row gets tagged regardless of which
-        // filter outcome it lands in.
+        // Classify the author once per post for CRM tags on the
+        // contact_identities row (DB UI / founder-watch). These tags are
+        // metadata only — they NO LONGER adjust the score. Gemini owns
+        // scoring (see matcher.ts + config/scoring-prompt.md).
         const classification = classifyAuthor(
           post.authorName,
           post.authorHeadline,
           post.content,
         );
 
-        // Location filter (headline + content + India signals + recruiter spam)
-        const geo = checkLocation(post.authorHeadline, post.content, post.authorName);
-        if (!geo.pass) {
-          queryCounts.rejected_geo++;
-          queryCounts.geo_reasons[geo.reason] = (queryCounts.geo_reasons[geo.reason] ?? 0) + 1;
-          totalGeo++;
-          // Record the contact even though the post is rejected. This is
-          // the "sourcing memory" the DB UI surfaces — recruiters in
-          // wrong regions, on-site-only roles, etc. that we filtered out
-          // but might want to revisit if the criteria change.
-          await store.upsertContactFromPost({
-            authorName: post.authorName,
-            authorHeadline: post.authorHeadline,
-            authorUrl: post.authorUrl,
-            scrapedAt,
-            rejection: { stage: "geo", reason: geo.reason },
-            tags: classification.tags,
-            primaryRole: classification.primaryRole,
-          });
-          continue;
-        }
-
-        // Intent filter (content + headline checks for offering/full-time/on-site)
-        const intent = quickIntentFilter(post.content, post.authorHeadline);
-        if (!intent.pass) {
-          queryCounts.rejected_intent++;
-          queryCounts.intent_reasons[intent.reason] = (queryCounts.intent_reasons[intent.reason] ?? 0) + 1;
-          totalFiltered++;
-          await store.upsertContactFromPost({
-            authorName: post.authorName,
-            authorHeadline: post.authorHeadline,
-            authorUrl: post.authorUrl,
-            scrapedAt,
-            rejection: { stage: "intent", reason: intent.reason },
-            tags: classification.tags,
-            primaryRole: classification.primaryRole,
-          });
-          continue;
-        }
-
+        // 2026-06: no geo/intent drop-gates here. Per direction, every
+        // deduped post goes to the Gemini scorer, which judges geo,
+        // remote/onsite, competitor, gig-farm and lead-type itself. The
+        // checkLocation/quickIntentFilter helpers stay exported (used by
+        // tests + analytics) but are not used as scrape-time filters.
         const inserted = await store.insertPost(post);
         if (inserted) {
           queryCounts.inserted++;
