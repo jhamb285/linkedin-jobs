@@ -185,18 +185,28 @@ function appendRagFooter(
   };
 }
 
+// LinkedIn doesn't render markdown code spans — `term` shows up with the
+// literal backticks in the feed. The prompts reference tech terms in
+// backticks and the LLM echoes that style, so strip them everywhere.
+function stripBackticks(text: string | null): string | null {
+  if (!text) return text;
+  return text.replace(/`+/g, "");
+}
+
 function sanitize(content: SinglePersonaContent): SinglePersonaContent {
+  const clean = (s: string | null): string | null =>
+    stripBackticks(stripAtMentions(s));
   return {
     ...content,
     // 2026-05-19: strip @ from comments too. User feedback: starting
     // every comment with "@Author" looks robotic and the LinkedIn feed
     // notification works without it (the post owner gets notified
     // either way when their post receives a reply).
-    comment: linkedinFormat(stripAtMentions(content.comment) ?? ""),
-    connectionNote: stripAtMentions(content.connectionNote) ?? "",
-    dm: linkedinFormat(stripAtMentions(content.dm) ?? ""),
-    email: stripAtMentions(content.email),
-    emailSubject: stripAtMentions(content.emailSubject),
+    comment: linkedinFormat(clean(content.comment) ?? ""),
+    connectionNote: clean(content.connectionNote) ?? "",
+    dm: linkedinFormat(clean(content.dm) ?? ""),
+    email: clean(content.email),
+    emailSubject: clean(content.emailSubject),
   };
 }
 
