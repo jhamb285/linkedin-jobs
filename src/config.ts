@@ -35,7 +35,10 @@ export function loadConfig(): AppConfig {
     maxConnectionsPerDay: parseInt(env("MAX_CONNECTIONS_PER_DAY", "15"), 10),
     maxDmsPerDay: parseInt(env("MAX_DMS_PER_DAY", "50"), 10),
     dailyScrapeCap: parseInt(env("DAILY_SCRAPE_CAP", "250"), 10),
-    // harvestapi/linkedin-post-search bills $1.50/1000 posts → $0.0015/lead.
+    // Settle-lag FALLBACK estimate only. The actor migrated to PAY_PER_EVENT
+    // (2026-03-09) — real cost is read from Apify's settled usageTotalUsd (see
+    // scraper finish + budget-guard), not this flat per-lead rate. ~$0.0015/post
+    // stays a rough stand-in for the row when PPE charges haven't posted yet.
     apifyCostPerLead: parseFloat(env("APIFY_COST_PER_LEAD", "0.0015")),
   };
 }

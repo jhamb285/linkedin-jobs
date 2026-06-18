@@ -1030,6 +1030,9 @@ export async function runScraper(config: AppConfig, store: Store): Promise<void>
   const runId = await store.startScrapeRun();
   let fetchedThisRun = 0;
   let actorRuns = 0;
+  // Apify sub-run ids for this daily scrape — re-fetched after the loop to sum
+  // the REAL settled usageTotalUsd (PAY_PER_EVENT, settles post-SUCCEEDED).
+  const runIds: string[] = [];
   let capped = false;
 
   await recordEvent({
@@ -1123,6 +1126,7 @@ export async function runScraper(config: AppConfig, store: Store): Promise<void>
             .call({ profileUrls, maxPosts: 2, maxTotalChargeUsd });
           ({ items } = await client.dataset(run.defaultDatasetId).listItems());
           actorRuns++;
+          runIds.push(run.id);
         }
       } else {
         // harvestapi: mirrors lead-magnet's working pattern exactly —
@@ -1154,6 +1158,7 @@ export async function runScraper(config: AppConfig, store: Store): Promise<void>
         const run = await client.actor(config.apifyActorId).call(actorInput);
         ({ items } = await client.dataset(run.defaultDatasetId).listItems());
         actorRuns++;
+        runIds.push(run.id);
       }
       fetchedThisRun += items.length;
       queryCounts.fetched = items.length;
@@ -1255,12 +1260,32 @@ export async function runScraper(config: AppConfig, store: Store): Promise<void>
     await store.finishQueryRecord(queryRowId, queryCounts);
   }
 
+  // Record the REAL settled charge from Apify's books, not the flat-rate
+  // estimate. harvestapi/linkedin-post-search migrated to PAY_PER_EVENT
+  // (2026-03-09): a per-start fee + $0.001 per 0-result query are now billed on
+  // top of per-post, so the old $1.50/1k constant no longer matches. PPE
+  // charges settle AFTER a run reports SUCCEEDED, so re-fetch each sub-run now
+  // (the dataset reads above bought settle time) and sum usageTotalUsd. If the
+  // books still read $0 while we clearly fetched posts, fall back to the
+  // estimate for this row — the cap itself is enforced from Apify's books in
+  // budget-guard, so this value is for the dashboard/digest, not the guard.
   const estimatedCost = fetchedThisRun * config.apifyCostPerLead;
+  let settledCost = 0;
+  for (const id of runIds) {
+    try {
+      const r = await client.run(id).get();
+      settledCost += r?.usageTotalUsd ?? 0;
+    } catch {
+      // drop this sub-run from the settled sum; the estimate fallback covers it
+    }
+  }
+  const recordedCost =
+    settledCost > 0 || fetchedThisRun === 0 ? settledCost : estimatedCost;
   await store.finishScrapeRun(runId, {
     leadsFetched: fetchedThisRun,
     leadsInserted: totalNew,
     actorRuns,
-    estimatedCostUsd: estimatedCost,
+    estimatedCostUsd: recordedCost,
     capped,
   });
 
@@ -1268,7 +1293,7 @@ export async function runScraper(config: AppConfig, store: Store): Promise<void>
     eventType: "scrape.run.completed",
     workflow: "linkedin_jobs",
     actor: "linkedin-jobs.scraper",
-    costUsd: estimatedCost,
+    costUsd: recordedCost,
     payload: {
       runId,
       leadsFetched: fetchedThisRun,
@@ -1284,6 +1309,6 @@ export async function runScraper(config: AppConfig, store: Store): Promise<void>
 
   console.log(
     `Done: ${totalNew} new | ${totalGeo} geo | ${totalFiltered} intent | ${totalOld} old | ${totalSkipped} dupes | ` +
-      `${fetchedThisRun} fetched (est. $${estimatedCost.toFixed(3)})${capped ? " [CAPPED]" : ""}`
+      `${fetchedThisRun} fetched ($${recordedCost.toFixed(4)}${settledCost > 0 ? " settled" : " est"})${capped ? " [CAPPED]" : ""}`
   );
 }
