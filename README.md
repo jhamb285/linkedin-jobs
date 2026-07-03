@@ -1,3 +1,19 @@
+> ## ⚠️ ARCHIVED — shut down 2026-07-03
+>
+> This pipeline is no longer operational. It was shut down because the channel
+> produced no qualified pipeline, and it is superseded by company outbound.
+>
+> - **Historical data is retained** in the shared platform Postgres
+>   (`posts.source = 'linkedin_jobs'`); nothing was deleted.
+> - The platform UI surfaces that drove this channel were retired
+>   (UI-level only — data + enum preserved).
+> - The mediaos scrape cron (`45 4 * * *`) is to be removed **separately**
+>   per the ops runbook; it is not touched by this archival.
+>
+> No code below has been changed — the documentation is kept for reference only.
+
+---
+
 # LinkedIn Lead-Scrape & Reply
 
 Automated pipeline that finds LinkedIn posts from people looking for AI engineers, scores them with AI, generates personalized comments, and exports to Google Sheets for PhantomBuster to execute.
